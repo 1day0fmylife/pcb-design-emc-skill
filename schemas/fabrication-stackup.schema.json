@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fabrication stackup comparison criteria",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "design_revision": {"$ref": "#/$defs/optional_text"},
+    "board_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "source": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": {"$ref": "#/$defs/optional_text"},
+        "document": {"$ref": "#/$defs/optional_text"},
+        "revision": {"$ref": "#/$defs/optional_text"},
+        "section": {"$ref": "#/$defs/optional_text"}
+      }
+    },
+    "total_thickness": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "basis": {"enum": ["board", "stack", null]},
+        "thickness_mm": {"$ref": "#/$defs/range"}
+      }
+    },
+    "copper_finish": {"$ref": "#/$defs/optional_text"},
+    "layers": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string", "pattern": "\\S"},
+          "type": {"$ref": "#/$defs/optional_text"},
+          "sublayers": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "thickness_mm": {"$ref": "#/$defs/range"},
+                "material": {"$ref": "#/$defs/optional_text"},
+                "epsilon_r": {"$ref": "#/$defs/range"},
+                "loss_tangent": {"$ref": "#/$defs/range"},
+                "spec_frequency_hz": {"type": ["number", "null"], "exclusiveMinimum": 0}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "optional_text": {"type": ["string", "null"], "pattern": "\\S"},
+    "range": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "min": {"type": ["number", "null"], "minimum": 0},
+        "max": {"type": ["number", "null"], "minimum": 0}
+      }
+    }
+  }
+}

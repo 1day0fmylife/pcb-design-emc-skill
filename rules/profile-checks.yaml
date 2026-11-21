@@ -1,5 +1,5 @@
 # Draft routing for profile-based review. Each branch in "when" is a conjunction.
-version: "0.1.0"
+version: "0.2.0"
 features:
   two-layer:
     label: Два медных слоя
@@ -178,6 +178,11 @@ families:
     reason: Возможности технологии и допуски влияют на выход годных и воспроизводимость сборки.
     evidence: Сверить производственный пакет и фактический процесс фабрики или сборщика.
     inputs: [pcb, fabrication]
+  connectivity:
+    domain: si_pi
+    reason: Расхождение назначения площадок может разорвать нужный токовый путь или соединить разные цепи.
+    evidence: Сверить XML-нетлист схемы и нативную PCB одной ревизии по RefDes, номеру вывода и сети.
+    inputs: [schematic, pcb]
   safety:
     domain: electrical_safety
     reason: Превышение проектной границы напряжения, тока или энергии может повредить защитный барьер.
@@ -190,6 +195,8 @@ families:
     inputs: [pcb, test_plan]
 
 checks:
+  - ids: [PCB-CONN-001]
+    correction: Уточнить назначение вывода и согласовать изменение схемы или PCB в установленном процессе проекта.
   - ids: [PCB-GEO-001]
     constraints: [min_copper_gap_mm]
     correction: Настроить зазор применимого класса сетей по утверждённому требованию и повторить DRC после заливки зон.

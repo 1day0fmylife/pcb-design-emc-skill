@@ -1,0 +1,22 @@
+# Пустой двухслойный пример. Перенесите критерии из согласованного документа своего изготовления.
+design_revision: null
+board_sha256: null
+source:
+  manufacturer: null
+  document: null
+  revision: null
+  section: null
+total_thickness:
+  basis: null
+  thickness_mm: {min: null, max: null}
+layers:
+  - name: F.Cu
+    sublayers:
+      - thickness_mm: {min: null, max: null}
+  - name: dielectric 1
+    sublayers:
+      - thickness_mm: {min: null, max: null}
+        material: null
+  - name: B.Cu
+    sublayers:
+      - thickness_mm: {min: null, max: null}

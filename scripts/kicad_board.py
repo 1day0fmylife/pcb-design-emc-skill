@@ -4,11 +4,16 @@ from collections import Counter
 from hashlib import sha256
 from itertools import chain
 
+if __package__:
+    from .kicad_stackup import collect_stackup
+else:
+    from kicad_stackup import collect_stackup
+
 
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
 
 
-def read_board_inventory(path):
+def read_board_inventory(path, *, stackup_only=False):
     if path.suffix.lower() != ".kicad_pcb":
         raise ValueError("Для инвентаризации укажите файл .kicad_pcb")
     try:
@@ -16,20 +21,28 @@ def read_board_inventory(path):
     except ImportError as error:
         raise ValueError("Для чтения PCB нужен модуль pcbnew из локальной установки KiCad") from error
 
-    digest = sha256(path.read_bytes()).hexdigest()
+    document = path.read_bytes()
+    digest = sha256(document).hexdigest()
     try:
         board = pcbnew.PCB_IO_KICAD_SEXPR().LoadBoard(str(path.resolve()), None)
         if board is None:
             raise ValueError(f"KiCad не загрузил плату {path}")
-        inventory = collect_objects(board)
         engine_version = pcbnew.Version()
+        if stackup_only:
+            copper_layers = [str(board.GetStandardLayerName(layer)) for layer in board.GetEnabledLayers().CuStack()]
+            inventory = {
+                "report_type": "kicad_stackup_inventory",
+                "file_format_version": board.GetFileFormatVersionAtLoad(),
+                "stackup": collect_stackup(document, copper_layers),
+            }
+        else:
+            inventory = {"report_type": "kicad_board_inventory"} | collect_objects(board)
     except (AttributeError, RuntimeError, TypeError) as error:
         raise ValueError(f"Ошибка чтения {path} через pcbnew — {error}") from error
 
     if sha256(path.read_bytes()).hexdigest() != digest:
         raise ValueError(f"Файл {path} изменился во время чтения PCB")
     return {
-        "report_type": "kicad_board_inventory",
         "source": str(path),
         "board_sha256": digest,
         "pcbnew_version": engine_version,
@@ -64,8 +77,17 @@ def collect_objects(board):
             row["refdes"] = refdes
         if footprint_uuid:
             row["footprint_uuid"] = footprint_uuid
+        if kind == "FOOTPRINT":
+            row["board_only"] = bool(item.IsBoardOnly())
         if pad_number is not None:
             row["pad_number"] = pad_number
+            row["electrical"] = bool(item.IsOnCopperLayer() and not item.IsNPTHWithNoCopper())
+            if "net" in row and item.GetNetCode() > 0:
+                # KiCad keeps the full, unescaped name inside brackets. GetDisplayNetname
+                # can shorten a name from the root sheet, so retain the full form here.
+                label = str(item.GetNetnameMsg())
+                if label.startswith("[") and label.endswith("]"):
+                    row["netlist_name"] = label[1:-1]
         items[uuid] = row
         return uuid
 
