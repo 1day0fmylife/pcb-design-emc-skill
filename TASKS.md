@@ -56,6 +56,6 @@
 
 ## P4: выпуск
 
-- [ ] Добавить GitHub Actions (проверка схем/тестов, без доступа к конфиденциальным CAD).
+- [x] Добавить GitHub Actions для схем, каталога, профилей, учебного отчёта и тестов из репозитория.
 - [ ] Определить license и release/versioning policy.
 - [ ] Провести профильный hardware/EMC/safety review и опубликовать limitations.
