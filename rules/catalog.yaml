@@ -860,7 +860,7 @@ rules:
     category: mechanical
     severity: ERROR
     verification: geometry
-    title: "Проверять координаты монтажных отверстий по корпусу и допускам."
+    title: "Проверять координаты, размеры и форму монтажных отверстий по чертежу и допускам корпуса."
     reference: references/geometry-mechanical-dfm.md
     criteria_source: project_or_datasheet
   - id: PCB-MECH-002

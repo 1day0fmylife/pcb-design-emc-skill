@@ -1,0 +1,26 @@
+# Перенесите данные из согласованного чертежа. Значения null требуют проверки.
+design_revision: null
+board_sha256: null
+source:
+  document: null
+  revision: null
+  section: null
+# Укажите kicad_pcb_absolute_xy_mm после согласования баз и осей чертежа с KiCad.
+coordinate_system: null
+holes:
+  MOUNT-A:
+    pad_uuid: null
+    kind: null
+    shape: circle
+    x_mm: {min: null, max: null}
+    y_mm: {min: null, max: null}
+    diameter_mm: {min: null, max: null}
+  MOUNT-B:
+    pad_uuid: null
+    kind: null
+    shape: oblong
+    x_mm: {min: null, max: null}
+    y_mm: {min: null, max: null}
+    width_mm: {min: null, max: null}
+    length_mm: {min: null, max: null}
+    axis_angle_deg: {nominal: null, tolerance: null}
