@@ -1,0 +1,16 @@
+design_revision: KICAD-QA-10.0.8
+board_source: multinetclasses_drc.kicad_pcb
+exit_code: 0
+mode: qa-drc
+track_width_bounds:
+  /violations/0: max
+  /violations/1: max
+items:
+  2a7c931b-072e-4000-9dc5-1c4949cffe4f:
+    object_id: DEFAULT
+    net: Net-(R1-Pad2)
+    layer: F.Cu
+  995d2ce6-a1f6-4315-a31f-e3c626d0a199:
+    object_id: DEFAULT
+    net: Net-(R3-Pad1)
+    layer: F.Cu

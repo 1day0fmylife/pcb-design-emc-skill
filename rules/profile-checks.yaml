@@ -1,0 +1,340 @@
+# Draft routing for profile-based review. Each branch in "when" is a conjunction.
+version: "0.1.0"
+features:
+  two-layer:
+    label: Два медных слоя
+    guidance: Для каждой критической трассы проверь непрерывность возврата и перешейки заливки при переходах между сторонами платы.
+    reference: references/layout-power.md
+  four-layer:
+    label: Четыре медных слоя
+    guidance: Сверь фактическое назначение внутренних слоёв и укажи опору каждой критической трассы и перехода слоёв.
+    reference: references/layout-power.md
+  low-voltage: {label: Низковольтная часть платы}
+  industrial:
+    label: Промышленное применение
+    guidance: Зафиксируй фактический диапазон входного питания, режимы пуска и провалов, внешние порты и назначение защит.
+    reference: references/interference-verification.md
+  dc-dc: {label: Импульсный DC/DC, implies: [power-switching, inductors]}
+  power-switching: {label: Силовая коммутация}
+  inductors: {label: Индуктивные компоненты}
+  common-mode-choke: {label: Синфазный дроссель, implies: [inductors]}
+  relay: {label: Электромеханические реле}
+  inductive-load: {label: Индуктивная нагрузка контактов}
+  contact-suppression: {label: Подавление на стороне контактов или нагрузки}
+  hazardous-voltage: {label: Опасное напряжение по классификации изделия}
+  mains: {label: Сетевое напряжение, implies: [hazardous-voltage]}
+  isolated-power: {label: Изолированный преобразователь, implies: [isolation-barrier]}
+  isolation-barrier: {label: Физическая граница изоляции}
+  creepage-clearance: {label: Проектная проверка изоляционных расстояний, implies: [isolation-barrier]}
+  isolation-slot: {label: Изоляционная прорезь, implies: [isolation-barrier]}
+  safety: {label: В области ревью есть требования электрической безопасности}
+  emc: {label: В области ревью есть требования EMC}
+  emc-emissions: {label: В области ревью есть требования к эмиссии}
+  emc-immunity: {label: В области ревью есть требования к устойчивости}
+  surge-eft-esd: {label: Проверить применимость ESD/EFT/surge, implies: [emc-immunity, surge-eft, esd]}
+  surge-eft: {label: EFT или surge в области ревью, implies: [emc-immunity]}
+  esd: {label: ESD в области ревью, implies: [emc-immunity]}
+  external-ports: {label: Внешние электрические порты или кабели}
+  external-gpio: {label: Внешний GPIO, implies: [external-ports]}
+  cable-shields: {label: Экранированные кабели, implies: [external-ports]}
+  chassis-bond: {label: Намеренное электрическое соединение с корпусом}
+  tvs: {label: TVS-защита}
+  fpga:
+    label: FPGA
+    guidance: Сверь назначение выводов, напряжения банков и I/O standards, включая состояния до конфигурации и при снятом питании.
+    reference: references/interfaces.md
+  high-speed: {label: Высокоскоростные каналы}
+  serdes: {label: SerDes, implies: [high-speed, differential]}
+  sfp-plus: {label: SFP+, implies: [serdes]}
+  ethernet:
+    label: Медный Ethernet
+    implies: [high-speed, differential, external-ports]
+    guidance: Раздели требования к MAC–PHY и PHY–magnetics–разъём. Уточни режим и наличие PoE.
+    reference: references/interfaces.md
+  ddr: {label: DDR, implies: [high-speed]}
+  differential: {label: Дифференциальные линии}
+  signal-integrity: {label: Фокус профиля на SI}
+  sensitive-analog: {label: Чувствительные аналоговые цепи}
+  adc: {label: АЦП с требованиями к опоре, implies: [sensitive-analog]}
+  high-impedance: {label: Высокоомные узлы, implies: [sensitive-analog]}
+  current-sense: {label: Точное измерение тока}
+  clock: {label: Отдельная тактовая цепь или PLL}
+  crystal: {label: Внешний кварц, implies: [clock]}
+  via-in-pad: {label: Via-in-pad}
+  mounting-holes: {label: Монтажные отверстия и крепёж}
+  information-security: {label: Открытая оценка информационной безопасности в области ревью}
+
+inputs:
+  schematic: Схема с обозначением цепей и ревизии
+  pcb: Плата с актуальной заливкой зон и ревизией
+  bom: BOM с точными MPN и вариантами сборки
+  fabrication: Спецификация выбранной фабрики с технологией и допусками
+  stackup: Согласованный стек слоёв с материалами и толщиной меди
+  power_tree: Дерево питания с режимами и нагрузками, включая пуск и аварии
+  operating_conditions: Температура, среда, режимы работы и условия охлаждения
+  mechanical: Чертёж или 3D-модель корпуса, крепежа и механических допусков
+  safety_requirements: Применимые продуктовые требования с редакцией и основанием выбора
+  insulation_matrix: Матрица пар доменов с рабочими и переходными напряжениями, средой, материалом и критериями изоляции
+  relay_coil: MPN реле, AC/DC катушки, схема драйвера и требования ко времени отпускания
+  relay_contacts: MPN реле, коммутационный режим, тип нагрузки, пусковой ток и ресурс контактов
+  emissions_requirements: Цели эмиссии, рабочие режимы, корпус и конфигурации кабелей
+  immunity_requirements: Программа устойчивости с применимыми портами, режимами и функциональным критерием
+  channel_requirements: Интерфейс, компоненты, режим, топология и бюджеты канала с источниками
+  clock_requirements: Документы генератора или PLL, нагрузка и бюджет джиттера по применимости
+  analog_requirements: Схема измерительного тракта и допустимые ошибки или шум
+  test_plan: План проверки с точками доступа, критериями и идентификатором ревизии
+  information_security_scope: Разрешённые границы, порты и ответственный за отдельную оценку ПЭМИН
+
+families:
+  geometry:
+    domain: fabrication
+    reason: Технологические допуски и фактические границы меди меняют геометрический запас.
+    evidence: Сопоставить геометрию платы после заливки зон с ревизией требований и отчётом DRC.
+    inputs: [pcb, fabrication]
+  routing:
+    domain: si_pi
+    reason: Геометрия трассы и опоры влияют на возвратный ток, связь или падение напряжения.
+    evidence: Проследить затронутые трассы и опору по слоям, сверить с режимом цепи.
+    inputs: [pcb, stackup]
+  grounding:
+    domain: si_pi
+    reason: Разрывы опоры и общий импеданс возврата могут связать шумную цепь с чувствительной.
+    evidence: Нанести прямой и обратный пути тока на схему и слои платы.
+    inputs: [schematic, pcb, stackup]
+  power:
+    domain: si_pi
+    reason: Импеданс питания и переходные режимы определяют запас по напряжению и нагрузке.
+    evidence: Сопоставить пути питания с бюджетом, допусками и режимами компонентов.
+    inputs: [schematic, pcb, power_tree]
+  capacitors:
+    domain: si_pi
+    reason: Паразитные параметры и рабочий режим меняют ёмкость и импеданс контура.
+    evidence: Сверить монтаж, петлю тока, MPN и кривые производителя для рабочего режима.
+    inputs: [schematic, pcb, bom]
+  resistors:
+    domain: si_pi
+    reason: Рабочее напряжение, рассеиваемая мощность и паразитные связи влияют на запас и точность.
+    evidence: Сверить функцию резистора, MPN и рабочие режимы со схемой и документацией.
+    inputs: [schematic, bom]
+  diodes:
+    domain: si_pi
+    reason: Динамические параметры диода и импеданс пути тока влияют на переходные напряжения.
+    evidence: Проследить ток через диод, сверить MPN, полярность и рабочий режим.
+    inputs: [schematic, pcb, bom]
+  clocks:
+    domain: si_pi
+    reason: Паразитная ёмкость, шум питания и отражения меняют запуск или временные параметры.
+    evidence: Сверить схему, трассировку и требования генератора или PLL.
+    inputs: [schematic, pcb, clock_requirements]
+    when: [[clock]]
+  inductors:
+    domain: si_pi
+    reason: Поле рассеяния, потери и насыщение могут ухудшить работу силовых и соседних цепей.
+    evidence: Сверить рабочие токи и MPN, проверить положение магнитного компонента и соседние трассы.
+    inputs: [pcb, bom, power_tree]
+    when: [[inductors]]
+  relays:
+    domain: si_pi
+    reason: Переключение катушки и контактов создаёт переходные токи, которые могут менять питание и логические уровни.
+    evidence: По схеме и плате проследить путь тока катушки, контактов и чувствительных цепей.
+    inputs: [schematic, pcb]
+    when: [[relay]]
+  emission:
+    domain: emc_emission
+    reason: Шумовой ток может замкнуться через плату, корпус или кабель и создать синфазную составляющую.
+    evidence: Сопоставить источник, путь связи и конфигурацию изделия с целями эмиссии.
+    inputs: [pcb, emissions_requirements]
+    when: [[emc], [emc-emissions], [power-switching], [high-speed], [clock]]
+  immunity:
+    domain: emc_immunity
+    reason: Внешнее воздействие может проникнуть через порт или корпус и нарушить функцию устройства.
+    evidence: Сопоставить пути связи и режимы изделия с применимой программой и функциональным критерием.
+    inputs: [schematic, pcb, immunity_requirements]
+    when: [[emc], [emc-immunity], [external-ports]]
+  mechanical:
+    domain: mechanical
+    reason: Фактический габарит с допусками влияет на сборку, деформацию и контакт с платой.
+    evidence: Сверить плату со сборочной моделью, крепежом и диапазонами допусков.
+    inputs: [pcb, mechanical]
+  highspeed:
+    domain: si_pi
+    reason: Потери, отражения, переходы опоры и задержки уменьшают запас высокоскоростного канала.
+    evidence: Проверить полный канал по требованиям компонентов, стеку и бюджетам интерфейса.
+    inputs: [pcb, stackup, channel_requirements]
+    when: [[high-speed]]
+  analog:
+    domain: si_pi
+    reason: Наведённое напряжение, утечка, общий импеданс и температура дают ошибки измерения.
+    evidence: Сверить точность тракта, соседство цепей и путь возврата с требованиями измерения.
+    inputs: [schematic, pcb, analog_requirements]
+    when: [[sensitive-analog]]
+  thermal:
+    domain: thermal
+    reason: Потери и тепловой путь определяют температуру компонентов и запас по ресурсу.
+    evidence: Сопоставить потери, тепловой путь и предельные температуры в рабочих режимах.
+    inputs: [pcb, bom, power_tree, operating_conditions]
+  manufacturing:
+    domain: fabrication
+    reason: Возможности технологии и допуски влияют на выход годных и воспроизводимость сборки.
+    evidence: Сверить производственный пакет и фактический процесс фабрики или сборщика.
+    inputs: [pcb, fabrication]
+  safety:
+    domain: electrical_safety
+    reason: Превышение проектной границы напряжения, тока или энергии может повредить защитный барьер.
+    evidence: Передать расчёт, применимость требований и конструкцию на проверку ответственному инженеру.
+    inputs: [safety_requirements]
+  testability:
+    domain: testability
+    reason: Недоступные точки или неустановленные критерии затрудняют воспроизводимую проверку.
+    evidence: Сопоставить план, расположение точек доступа и измерительные критерии для ревизии платы.
+    inputs: [pcb, test_plan]
+
+checks:
+  - ids: [PCB-GEO-001]
+    constraints: [min_copper_gap_mm]
+    correction: Настроить зазор применимого класса сетей по утверждённому требованию и повторить DRC после заливки зон.
+  - ids: [PCB-GEO-003]
+    constraints: [copper_to_edge_mm]
+    correction: Сверить допуск фрезеровки с фабрикой и при необходимости отвести медь от обработанного края.
+  - ids: [PCB-DFM-001]
+    constraints: [min_trace_width_mm, min_copper_gap_mm, min_drill_mm]
+    correction: Согласовать параметры выбранного процесса и сверить с правилами нативной платы.
+  - ids: [PCB-DFM-002]
+    inputs: [stackup]
+  - ids: [PCB-DFM-004]
+    when: [[via-in-pad]]
+  - ids: [PCB-DFM-009, PCB-DFM-010]
+    inputs: [bom]
+  - ids: [PCB-GEO-002, PCB-GEO-007, PCB-GEO-008, PCB-GND-006, PCB-SAFE-001]
+    domain: electrical_safety
+    when: [[isolation-barrier], [hazardous-voltage]]
+    inputs: [schematic, pcb, mechanical, safety_requirements, insulation_matrix]
+    constraints: [working_voltage_v]
+    reason: Пробой через воздух и проводящий путь по поверхности имеют разные критерии.
+    evidence: Проверить пары доменов, кратчайшие пути во всех слоях, крепёж и расчёт по применимому стандарту.
+    correction: Согласовать матрицу изоляции и отдельно проверить clearance и creepage для каждой пары доменов.
+  - ids: [PCB-GEO-010]
+    domain: electrical_safety
+    when: [[isolation-slot]]
+    inputs: [pcb, mechanical, safety_requirements, insulation_matrix]
+    evidence: Сверить геометрию прорези с чертежом, технологическим допуском и применимым критерием.
+  - ids: [PCB-DIO-001, PCB-DIO-003]
+    domain: emc_immunity
+    when: [[tvs, external-ports], [tvs, emc-immunity]]
+    inputs: [immunity_requirements]
+    evidence: Сверить топологию токового пути и параметры защиты с документами конкретного порта и компонента.
+  - ids: [PCB-DIO-002, PCB-DIO-005]
+    when: [[tvs]]
+    evidence: Сверить импульсные параметры TVS и пределы защищаемого элемента в применимом режиме.
+  - ids: [PCB-DIO-007]
+    when: [[inductive-load], [relay], [power-switching]]
+  - ids: [PCB-DIO-008]
+    domain: electrical_safety
+    when: [[isolation-barrier, tvs]]
+    inputs: [insulation_matrix, safety_requirements]
+    evidence: Проследить цепь TVS и возврата по схеме и плате относительно границы изоляции.
+  - ids: [PCB-IMM-004, PCB-IMM-009]
+    domain: emc_immunity
+    when: [[isolation-barrier, emc-immunity], [isolation-barrier, tvs], [isolation-barrier, external-ports]]
+    inputs: [schematic, pcb, insulation_matrix, immunity_requirements]
+    correction: Согласовать размещение защиты и её возврат с границей изоляции, включить независимую проверку барьера.
+  - ids: [PCB-PWR-001, PCB-PWR-002, PCB-PWR-011]
+    inputs: [stackup, operating_conditions]
+    constraints: [max_current_a]
+    correction: Получить токи по ветвям и режимам, затем согласовать расчёт падения напряжения или нагрева для фактической меди.
+  - ids: [PCB-PWR-005, PCB-PWR-006, PCB-CAP-007, PCB-IND-006]
+    when: [[dc-dc]]
+    inputs: [schematic, pcb, power_tree, bom]
+    reason: Контур с быстрым изменением тока и область SW могут передавать помехи соседним цепям.
+    evidence: Нанести токовые контуры по фазам переключения и сопоставить placement с design guide точного преобразователя.
+    correction: Проверить сокращение критического контура, уменьшение связи SW и влияние изменения на тепловой режим.
+  - ids: [PCB-CLK-003]
+    when: [[clock, dc-dc]]
+    evidence: Сверить размещение и слои генератора относительно области SW и путей возврата.
+  - ids: [PCB-CAP-006, PCB-MECH-001, PCB-MECH-002, PCB-MECH-009, PCB-MECH-010]
+    when: [[mounting-holes]]
+    inputs: [pcb, mechanical]
+  - ids: [PCB-MECH-005]
+    when: [[chassis-bond, mounting-holes]]
+  - ids: [PCB-RES-004, PCB-ANA-003]
+    when: [[current-sense]]
+  - ids: [PCB-RES-006, PCB-ANA-004, PCB-ANA-008]
+    when: [[high-impedance]]
+  - ids: [PCB-ANA-005]
+    when: [[adc]]
+  - ids: [PCB-ANA-007]
+    when: [[sensitive-analog, relay], [sensitive-analog, dc-dc]]
+  - ids: [PCB-CLK-001, PCB-CLK-002, PCB-CLK-004, PCB-CLK-006]
+    when: [[crystal]]
+  - ids: [PCB-IND-007]
+    when: [[common-mode-choke]]
+  - ids: [PCB-RELAY-001, PCB-RELAY-002, PCB-RELAY-003, PCB-RELAY-004, PCB-RELAY-011]
+    inputs: [relay_coil]
+    reason: При отключении ток катушки создаёт переходное напряжение. Цепь подавления влияет на нагрузку драйвера и время отпускания.
+    evidence: Сверить тип катушки, MPN, режим драйвера, схему подавления и требование ко времени отпускания.
+    correction: При необходимости согласовать схему подавления с документацией реле и допустимыми режимами драйвера.
+  - ids: [PCB-RELAY-005, PCB-RELAY-010, PCB-RELAY-012, PCB-RELAY-014]
+    inputs: [relay_coil, relay_contacts, power_tree]
+    evidence: Сопоставить режим коммутации со схемой питания, RESET и возвратом. При наличии измерений различить просадку питания и наведённую помеху.
+  - ids: [PCB-RELAY-006]
+    domain: electrical_safety
+    when: [[relay, hazardous-voltage]]
+    inputs: [relay_contacts, safety_requirements, insulation_matrix, mechanical]
+    constraints: [working_voltage_v]
+    correction: Согласовать изоляцию между контактами и управлением для реальных напряжений и конструкции.
+  - ids: [PCB-RELAY-007]
+    inputs: [relay_contacts]
+    reason: Пусковой ток и характер нагрузки влияют на ресурс и переходные процессы контактов.
+    evidence: Сверить коммутационную способность для фактического режима и требования к ресурсу по datasheet.
+    correction: При нехватке запаса пересмотреть реле или условия коммутации с учётом требований к изделию.
+  - ids: [PCB-RELAY-008]
+    domain: emc_emission
+    when: [[relay, inductive-load]]
+    inputs: [relay_contacts, emissions_requirements]
+    evidence: Оценить путь помех от контактной нагрузки и проверить применимость подавления на стороне нагрузки.
+  - ids: [PCB-RELAY-009]
+    when: [[relay, contact-suppression]]
+    inputs: [relay_contacts]
+  - ids: [PCB-RELAY-013]
+    domain: electrical_safety
+    when: [[relay, isolation-barrier]]
+    inputs: [insulation_matrix, safety_requirements]
+  - ids: [PCB-RELAY-015]
+    domain: electrical_safety
+    when: [[relay, mains, contact-suppression]]
+    inputs: [relay_contacts, safety_requirements]
+  - ids: [PCB-RELAY-016]
+    domain: emc_emission
+    when: [[relay, external-ports]]
+    inputs: [relay_contacts, emissions_requirements]
+  - ids: [PCB-EMI-002, PCB-EMI-011, PCB-IMM-011]
+    when: [[external-ports]]
+  - ids: [PCB-EMI-005]
+    when: [[cable-shields], [chassis-bond]]
+  - ids: [PCB-EMI-008]
+    when: [[differential]]
+  - ids: [PCB-IMM-001]
+    when: [[external-ports, esd]]
+  - ids: [PCB-IMM-002]
+    when: [[external-ports, surge-eft]]
+  - ids: [PCB-IMM-005]
+    when: [[differential, emc-immunity], [differential, tvs]]
+  - ids: [PCB-IMM-006]
+    when: [[high-speed, tvs]]
+  - ids: [PCB-IMM-007]
+    when: [[external-gpio]]
+  - ids: [PCB-IMM-010, PCB-IMM-012]
+    when: [[emc-immunity]]
+  - ids: [PCB-HS-001, PCB-HS-010]
+    constraints: [controlled_impedance_ohm]
+    correction: Связать цель импеданса с конкретным каналом и согласованным стеком, затем сверить геометрию с изготовителем.
+  - ids: [PCB-HS-008]
+    when: [[ddr], [serdes]]
+  - ids: [PCB-HS-009]
+    when: [[serdes]]
+    inputs: [test_plan]
+  - ids: [PCB-TEST-003]
+    when: [[high-speed]]
+  - ids: [PCB-SAFE-002, PCB-SAFE-003]
+    when: [[industrial], [power-switching], [safety]]
+    inputs: [schematic, power_tree]

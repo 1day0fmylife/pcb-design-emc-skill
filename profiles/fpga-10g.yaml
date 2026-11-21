@@ -1,6 +1,6 @@
 # Draft profile; null means TBD, not zero and not approval.
 profile_id: fpga-10g
-description: "FPGA/10G-SFP+ high-speed board"
+description: "Высокоскоростная плата с FPGA и 10G SFP+"
 inherits: generic-4layer
 approved: false
 feature_tags:
@@ -17,6 +17,6 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "No universal 100-ohm or length-matching rule; use selected transceiver and PCB stackup"
-  - "Evaluate insertion/return loss, skew, via stubs and package delays"
-  - "Document eye/BER validation"
+  - "Получить цели импеданса и согласования задержек из требований конкретного трансивера и стека платы."
+  - "Оценить вносимые и отражённые потери, skew, ответвления via и задержки корпусов."
+  - "Зафиксировать критерии проверки глазковой диаграммы и BER."

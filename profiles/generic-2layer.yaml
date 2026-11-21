@@ -15,5 +15,5 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "PCB fabrication minima and safety isolation must be explicitly approved"
-  - "GND return routes and high di/dt loops need manual review"
+  - "Согласовать технологические минимумы с фабрикой, а критерии изоляции с ответственным инженером."
+  - "Проверить обратные токи GND и петли с высоким di/dt по схеме и плате."

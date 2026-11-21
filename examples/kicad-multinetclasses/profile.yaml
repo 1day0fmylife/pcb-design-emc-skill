@@ -1,0 +1,24 @@
+profile_id: kicad-multinetclasses
+description: Проверка импорта DRC на тестовой плате KiCad multinetclasses_drc
+inherits: null
+design_revision: KICAD-QA-10.0.8
+approved: false
+feature_tags: [two-layer]
+constraints: {}
+review_objects:
+  DEFAULT:
+    kind: net_class
+    description: Класс Default, к которому KiCad применил rule_3 в этом прогоне
+    modes: [qa-drc]
+criteria:
+  RULE-3-MAX:
+    object_id: DEFAULT
+    rule_id: PCB-DFM-001
+    mode: qa-drc
+    metric: trace_width_max
+    unit: mm
+    limit: 0.127
+    source:
+      document: multinetclasses_drc.kicad_dru
+      revision: "10.0.8"
+      section: rule_3, ограничение max 5 mil

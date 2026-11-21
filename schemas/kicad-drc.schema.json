@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fields used by the KiCad DRC v1 importer",
+  "type": "object",
+  "required": ["$schema", "source", "date", "kicad_version", "coordinate_units", "violations",
+               "unconnected_items", "schematic_parity"],
+  "properties": {
+    "$schema": {"const": "https://schemas.kicad.org/drc.v1.json"},
+    "source": {"$ref": "#/$defs/text"},
+    "date": {"$ref": "#/$defs/text"},
+    "kicad_version": {"$ref": "#/$defs/text"},
+    "coordinate_units": {"enum": ["mm", "mils", "in"]},
+    "violations": {"$ref": "#/$defs/violations"},
+    "unconnected_items": {"$ref": "#/$defs/violations"},
+    "schematic_parity": {"$ref": "#/$defs/violations"},
+    "included_severities": {"type": "array", "items": {"type": "string"}},
+    "ignored_checks": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "pattern": "\\S"},
+    "uuid": {"type": "string", "pattern": "^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$"},
+    "position": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {"x": {"type": "number"}, "y": {"type": "number"}}
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description", "severity", "items"],
+        "properties": {
+          "type": {"$ref": "#/$defs/text"},
+          "description": {"type": "string"},
+          "severity": {"enum": ["error", "warning"]},
+          "pos": {"$ref": "#/$defs/position"},
+          "layer": {"type": "string"},
+          "excluded": {"type": "boolean"},
+          "comment": {"type": "string"},
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["uuid", "description", "pos"],
+              "properties": {
+                "uuid": {"$ref": "#/$defs/uuid"},
+                "description": {"type": "string"},
+                "pos": {"$ref": "#/$defs/position"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

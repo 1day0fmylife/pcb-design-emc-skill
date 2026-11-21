@@ -1,0 +1,49 @@
+profile_id: relay-fixture
+description: Учебный релейный сценарий на синтетических данных
+inherits: relay-controller
+design_revision: FIXTURE-A
+approved: false
+feature_tags: [external-ports]
+constraints: {}
+review_objects:
+  CTRL-CONTACT:
+    kind: domain_pair
+    members: [CONTROL, CONTACT]
+    modes: [normal]
+  CONTACT-CHASSIS:
+    kind: domain_pair
+    members: [CONTACT, CHASSIS]
+    modes: [service]
+  SIGNAL:
+    kind: net_class
+    description: Управляющие сигналы
+    modes: [normal]
+criteria:
+  CTRL-CLEARANCE:
+    rule_id: PCB-GEO-002
+    object_id: CTRL-CONTACT
+    mode: normal
+    metric: clearance
+    limit: null
+    unit: mm
+  CHASSIS-CLEARANCE:
+    rule_id: PCB-GEO-002
+    object_id: CONTACT-CHASSIS
+    mode: service
+    metric: clearance
+    limit: null
+    unit: mm
+  CHASSIS-CREEPAGE:
+    rule_id: PCB-GEO-002
+    object_id: CONTACT-CHASSIS
+    mode: service
+    metric: creepage
+    limit: null
+    unit: mm
+  SIGNAL-GAP:
+    rule_id: PCB-GEO-001
+    object_id: SIGNAL
+    mode: normal
+    metric: copper_gap
+    limit: null
+    unit: mm

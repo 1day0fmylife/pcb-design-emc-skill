@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schemas.kicad.org/drc.v1.json",
+  "source": "relay-fixture.kicad_pcb",
+  "date": "2026-01-01T00:00:00+00:00",
+  "kicad_version": "9.0.6",
+  "coordinate_units": "mm",
+  "violations": [
+    {
+      "type": "clearance",
+      "severity": "error",
+      "description": "Учебное нарушение зазора между площадками K1 и Q1",
+      "items": [
+        {"uuid": "00000000-0000-4000-8000-000000000001", "description": "Площадка K1", "pos": {"x": 10, "y": 10}},
+        {"uuid": "00000000-0000-4000-8000-000000000002", "description": "Площадка Q1", "pos": {"x": 11, "y": 10}}
+      ]
+    },
+    {
+      "type": "silk_edge_clearance",
+      "severity": "warning",
+      "description": "Учебный случай пересечения шелкографии с контуром платы",
+      "excluded": true,
+      "comment": "Учебное исключение для проверки импорта",
+      "items": []
+    }
+  ],
+  "unconnected_items": [],
+  "schematic_parity": []
+}

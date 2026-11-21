@@ -21,13 +21,15 @@ Skill требует обосновывать ограничения докум�
 ```text
 pcb-design-emc-skill/
 ├── README.md
+├── PROJECT_REVIEW.md
 ├── SKILL.md
-└── references/
-    ├── layout-power.md
-    ├── interfaces.md
-    ├── interference-verification.md
-    ├── engineering-validation.md
-    └── sources.md
+├── references/
+├── rules/
+├── profiles/
+├── schemas/
+├── scripts/
+├── examples/
+└── tests/
 ```
 
 Точка входа — [SKILL.md](SKILL.md). Подробности загружаются по задаче: [PCB и питание](references/layout-power.md), [интерфейсы](references/interfaces.md), [помехи](references/interference-verification.md), [верификация](references/engineering-validation.md). Первичные материалы перечислены в [реестре источников](references/sources.md).
@@ -56,7 +58,7 @@ mkdir -p "$project_dir/.agents/skills"
 # mkdir без -p остановит установку, если такая версия уже существует.
 if mkdir "$skill_target"; then
   cp SKILL.md "$skill_target/"
-  cp -R references rules profiles schemas "$skill_target/"
+  cp -R references rules profiles schemas scripts "$skill_target/"
 fi
 ```
 
@@ -68,11 +70,11 @@ skill_target="$project_dir/.claude/skills/pcb-design-review"
 mkdir -p "$project_dir/.claude/skills"
 if mkdir "$skill_target"; then
   cp SKILL.md "$skill_target/"
-  cp -R references rules profiles schemas "$skill_target/"
+  cp -R references rules profiles schemas scripts "$skill_target/"
 fi
 ```
 
-При использовании обоих агентов установите обе копии из одной ревизии. При обновлении сравните установленную версию с исходником и сохраните локальные правки; не запускайте повторное копирование поверх существующей версии вслепую. Полнота установки: `SKILL.md`, все файлы `references/`, каталог `rules/`, профили `profiles/` и схемы `schemas/`.
+При использовании обоих агентов установите обе копии из одной ревизии. При обновлении сравните установленную версию с исходником и сохраните локальные правки. В состав установки входят `SKILL.md`, `references/`, `rules/`, `profiles/`, `schemas/` и `scripts/`.
 
 Откройте новую сессию агента в целевом проекте и проверьте наличие skill. Если он не обнаружен, проверьте путь, YAML frontmatter, настройки доверия/политики клиента и документацию вашей версии. Для командного использования можно добавить установленные каталоги в Git проекта после review.
 
@@ -118,6 +120,44 @@ EMI и открытые меры снижения ПЭМИН. Только ан�
 Отдельно укажи, какие свойства платы этим отчётом не проверены.
 ```
 
+## Конфигуратор PCB-профиля
+
+CLI работает локально в Python 3.10+ с PyYAML 6 и jsonschema 4. Зависимости перечислены в [scripts/requirements.txt](scripts/requirements.txt).
+
+```sh
+python3 scripts/pcb_profile.py list --fields
+python3 scripts/pcb_profile.py analyze relay-controller
+python3 scripts/pcb_profile.py init my-controller --from industrial-24v \
+  --description "Контроллер с реле" --feature relay --feature external-ports \
+  --output my-controller.yaml
+```
+
+Укажите в созданном YAML ревизию платы, признаки, ссылки на артефакты и параметры, для которых есть документ с редакцией и областью применения. Затем проверьте профиль и сформируйте план ревью.
+
+```sh
+python3 scripts/pcb_profile.py validate my-controller.yaml
+python3 scripts/pcb_profile.py analyze my-controller.yaml --output review-plan.md
+python3 scripts/pcb_profile.py analyze my-controller.yaml --format json --output review-plan.json
+```
+
+План содержит выбранные правила, причины и способы проверки, рекомендации, недостающие данные и основания для исключений. Команда использует только данные профиля. Численные критерии указываются пользователем, а результаты фактических проверок оформляются отдельно. Семантика наследования и статусов описана в [регламенте](references/rules-engine.md).
+
+### Учебный сценарий с релейным контроллером
+
+В [учебном профиле](examples/relay-review/profile.yaml) заданы две пары доменов. План запрашивает отдельные `clearance` и `creepage` для каждой пары и показывает пробелы в критериях. Готовый учебный DRC содержит активное замечание и исключение.
+
+```sh
+python3 scripts/pcb_profile.py analyze examples/relay-review/profile.yaml
+python3 scripts/pcb_profile.py import-drc examples/relay-review/profile.yaml \
+  examples/relay-review/drc.json --context examples/relay-review/drc-context.yaml
+python3 scripts/pcb_profile.py validate-report examples/relay-review/profile.yaml \
+  examples/relay-review/review.json
+```
+
+Импорт работает с готовым JSON KiCad DRC v1 и привязывает объекты по UUID из предоставленного контекста. Инженерный отчёт после проверки можно сверить с профилем командой `validate-report`. Форматы матрицы, контекста и доказательств описаны в [регламенте](references/rules-engine.md).
+
+Реальный экспорт проверен с `kicad-cli` 10.0.8 на официальной QA-плате. Прогон подтвердил обработку двух нарушений максимальной ширины дорожки и совпадение замечаний при разных кодах завершения. [Воспроизводимый прогон KiCad](examples/kicad-multinetclasses/README.md)
+
 ## Входные данные и результат
 
 Полезны нативные схема/PCB, BOM с точными part numbers, stackup изготовителя, datasheet/errata, механика и корпус, питание/нагрузки, интерфейсы, условия эксплуатации и требования к испытаниям. Для диагностики нужны воспроизводимые условия и измерения. Секретные материалы не передаются во внешние сервисы.
@@ -129,6 +169,8 @@ EMI и открытые меры снижения ПЭМИН. Только ан�
 ## Статус проверки и ограничения
 
 В исходном проекте выполнены проверка структуры skill и локальных Markdown-ссылок, статический анализ инструкций и независимый текстовый прогон трёх сценариев: неполные данные по PHY/DC/DC, проект без ADR и DRC с нарушениями при exit code 0. Для автономной поставки дополнительно проверяются структура и ссылки.
+
+Конфигуратор и импорт готового DRC проверяются командами `python3 scripts/pcb_profile.py validate` и `python3 -B -m unittest discover -s tests -v`. Учебный DRC подготовлен вручную по формату KiCad v1. В [своде ревью репозитория](PROJECT_REVIEW.md) перечислены замечания и приоритеты развития автоматизации.
 
 Загрузка реальными клиентами Codex/Claude Code, ревью нативной платы и измерения на стенде пока не подтверждены. Skill является инженерным помощником, не заменяет квалифицированное review, расчёты и испытания.
 

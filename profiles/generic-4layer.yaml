@@ -15,5 +15,5 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "Stackup and ground reference planes require fab confirmation"
-  - "No assumed impedance or clearance without board data"
+  - "Согласовать стек платы с фабрикой и проверить расположение опорных плоскостей."
+  - "Получить критерии импеданса и зазоров для конкретного стека и классов сетей."

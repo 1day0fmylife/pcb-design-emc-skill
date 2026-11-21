@@ -16,5 +16,5 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "Specify actual min/max input voltage, load and conducted immunity targets"
-  - "Consider brownout, protection, EMC cable effects and thermal derating"
+  - "Указать фактический диапазон входного напряжения, нагрузку и цели кондуктивной устойчивости."
+  - "Проверить провалы питания, защиты, влияние кабелей на EMC и снижение допустимой нагрузки при нагреве."
