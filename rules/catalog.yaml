@@ -1,5 +1,5 @@
-# Machine-readable rule registry v0.1.0; no rule proves certification or EMC compliance.
-version: "0.1.0"
+# Machine-readable rule registry; engineering review required.
+version: "0.2.0"
 status: "draft-for-engineering-review"
 rules:
   - id: PCB-GEO-001
@@ -1163,6 +1163,13 @@ rules:
     verification: review
     title: "Проверять DNP и варианты комплектации отдельно."
     reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CONN-001
+    category: connectivity
+    severity: ERROR
+    verification: review
+    title: "Сверять назначение сетей по RefDes и номеру вывода между схемой и платой."
+    reference: references/rules-engine.md
     criteria_source: project_or_datasheet
   - id: PCB-SAFE-001
     category: safety

@@ -6,6 +6,7 @@ import math
 import re
 import sys
 from collections import Counter, defaultdict
+from hashlib import sha256
 from pathlib import Path
 
 try:
@@ -18,12 +19,18 @@ except ModuleNotFoundError as error:
     raise
 
 if __package__:
+    from .fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from .kicad_board import read_board_inventory
+    from .kicad_checks import run_kicad_checks
     from .kicad_drc import import_drc
+    from .kicad_netlist import compare_netlist, read_kicad_netlist
     from .pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 else:
+    from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from kicad_board import read_board_inventory
+    from kicad_checks import run_kicad_checks
     from kicad_drc import import_drc
+    from kicad_netlist import compare_netlist, read_kicad_netlist
     from pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 
 
@@ -67,9 +74,10 @@ class UniqueSafeLoader(yaml.SafeLoader):
         return unique_mapping(self.construct_pairs(node, deep=deep))
 
 
-def load_document(path):
+def load_document(path, *, content=None):
     try:
-        content = path.read_text(encoding="utf-8")
+        if content is None:
+            content = path.read_text(encoding="utf-8")
         if path.suffix.lower() == ".json":
             return json.loads(content, object_pairs_hook=unique_mapping)
         return yaml.load(content, Loader=UniqueSafeLoader)
@@ -96,7 +104,8 @@ class ProfileReview:
         self.root = root
         self.profiles = root / "profiles"
         self.validators = {}
-        for name in ("profile", "catalog", "profile-checks", "report", "kicad-drc", "kicad-context"):
+        for name in ("profile", "catalog", "profile-checks", "report", "kicad-drc", "kicad-erc", "kicad-context",
+                     "fabrication-stackup"):
             schema_path = root / "schemas" / f"{name}.schema.json"
             schema = load_document(schema_path)
             try:
@@ -421,6 +430,20 @@ class ProfileReview:
         result = import_drc(profile, report, context, str(report_path), self.rules, board)
         return result | {"context_artifact": str(context_path)}
 
+    def compare_stackup(self, board_path, fabrication_path, design_revision):
+        fabrication = artifact = None
+        if fabrication_path is not None:
+            if fabrication_path.suffix.lower() not in PROFILE_FORMATS:
+                raise ValueError("Для листа изготовителя укажите файл YAML или JSON")
+            data = fabrication_path.read_bytes()
+            fabrication = load_document(fabrication_path, content=data.decode("utf-8"))
+            validate_document(fabrication, self.validators["fabrication-stackup"], fabrication_path)
+            validate_fabrication_criteria(fabrication)
+            artifact = {"source": str(fabrication_path), "sha256": sha256(data).hexdigest()}
+        board = read_board_inventory(board_path, stackup_only=True) if board_path is not None else None
+        result = compare_fabrication_stackup(board, fabrication, design_revision)
+        return result | {"fabrication_artifact": artifact}
+
     def validate(self, extra_paths):
         paths = self.built_in_paths()
         identifiers = set()
@@ -435,6 +458,8 @@ class ProfileReview:
         for path in sorted((self.root / "examples").glob("review-result*.json")):
             report = self.load_validated(path, "report")
             self.check_names((item["rule_id"] for item in report["findings"]), self.rules, str(path))
+        for path in sorted((self.root / "examples").glob("fabrication-stackup*.yaml")):
+            validate_fabrication_criteria(self.load_validated(path, "fabrication-stackup"))
         return len(paths)
 
     def built_in_paths(self):
@@ -640,6 +665,28 @@ def arguments():
     inventory = commands.add_parser("inventory-board", help="Прочитать объекты платы KiCad по UUID")
     inventory.add_argument("board", type=Path, help="Плата .kicad_pcb")
     inventory.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    stackup = commands.add_parser("inventory-stackup", help="Прочитать физический стек, записанный в KiCad PCB")
+    stackup.add_argument("board", type=Path, help="Плата .kicad_pcb")
+    stackup.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    fabrication = commands.add_parser("compare-stackup", help="Сверить стек KiCad с листом изготовителя")
+    fabrication.add_argument("--board", type=Path, help="Плата .kicad_pcb")
+    fabrication.add_argument("--fabrication", type=Path, help="Критерии изготовителя в YAML или JSON")
+    fabrication.add_argument("--design-revision", help="Ревизия платы, к которой относится лист")
+    fabrication.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    checks = commands.add_parser("run-checks", help="Запустить ERC и DRC на временной копии проекта")
+    checks.add_argument("--schematic", type=Path, help="Корневой файл .kicad_sch")
+    checks.add_argument("--board", type=Path, help="Файл .kicad_pcb")
+    checks.add_argument("--project-dir", type=Path, help="Общий корень проекта и локальных зависимостей")
+    checks.add_argument("--design-revision", help="Ревизия входных файлов")
+    checks.add_argument("--output-dir", type=Path, required=True, help="Новый каталог для отчётов")
+    checks.add_argument("--kicad-cli", default="kicad-cli", help="Имя или путь к установленному KiCad CLI")
+    checks.add_argument("--timeout", type=int, default=120, help="Лимит секунд на каждый вызов KiCad")
+    checks.add_argument("--refill-zones", action="store_true", help="Пересчитать заливку в памяти при DRC")
+    parity = commands.add_parser("compare-netlist", help="Сверить выводы схемы и PCB по XML-нетлисту")
+    parity.add_argument("--board", type=Path, help="Плата .kicad_pcb")
+    parity.add_argument("--netlist", type=Path, help="XML-нетлист из KiCad")
+    parity.add_argument("--design-revision", help="Общая ревизия схемы и платы")
+    parity.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     return parser
 
 
@@ -683,10 +730,33 @@ def main():
                 raise ValueError("Для импорта DRC укажите выходной файл .json")
             profile = review.profile(review.profile_path(args.profile))
             emit(as_json(review.import_drc(profile, args.report, args.context, args.board)), args.output)
-        elif args.command == "inventory-board":
+        elif args.command in {"inventory-board", "inventory-stackup"}:
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для инвентаря укажите выходной файл .json")
-            emit(as_json(read_board_inventory(args.board)), args.output)
+            emit(as_json(read_board_inventory(args.board, stackup_only=args.command == "inventory-stackup")),
+                 args.output)
+        elif args.command == "compare-netlist":
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для сверки нетлиста укажите выходной файл .json")
+            netlist = read_kicad_netlist(args.netlist) if args.netlist is not None else None
+            board = read_board_inventory(args.board) if args.board is not None else None
+            emit(as_json(compare_netlist(board, netlist, args.design_revision)), args.output)
+        elif args.command == "compare-stackup":
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для сверки стека укажите выходной файл .json")
+            emit(as_json(review.compare_stackup(args.board, args.fabrication, args.design_revision)), args.output)
+        elif args.command == "run-checks":
+            if args.timeout <= 0:
+                raise ValueError("--timeout должен быть положительным")
+            if args.refill_zones and args.board is None:
+                raise ValueError("--refill-zones требует --board")
+            reports = run_kicad_checks(
+                {"erc": args.schematic, "drc": args.board}, args.project_dir, args.output_dir,
+                args.design_revision, args.kicad_cli, args.timeout, args.refill_zones, review.load_validated,
+            )
+            summary = args.output_dir / "summary.json"
+            emit(as_json(reports), summary)
+            print(f"{reports['overall_status']} — {summary}")
     except (ValueError, OSError) as error:
         parser.exit(2, f"Ошибка — {error}\n")
 

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fields used from KiCad ERC v1 reports",
+  "type": "object",
+  "required": ["$schema", "source", "date", "kicad_version", "coordinate_units", "sheets"],
+  "properties": {
+    "$schema": {"const": "https://schemas.kicad.org/erc.v1.json"},
+    "source": {"type": "string", "minLength": 1},
+    "date": {"type": "string", "minLength": 1},
+    "kicad_version": {"type": "string", "minLength": 1},
+    "coordinate_units": {"enum": ["mm", "mils", "in"]},
+    "sheets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "uuid_path", "violations"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "uuid_path": {"type": "string", "minLength": 1},
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "description", "severity", "items"],
+              "properties": {
+                "type": {"type": "string", "minLength": 1},
+                "description": {"type": "string"},
+                "severity": {"enum": ["error", "warning"]},
+                "excluded": {"type": "boolean"},
+                "comment": {"type": "string"},
+                "items": {"type": "array", "items": {"type": "object"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "included_severities": {"type": "array", "items": {"type": "string"}},
+    "ignored_checks": {"type": "array", "items": {"type": "object"}}
+  }
+}
