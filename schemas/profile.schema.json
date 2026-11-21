@@ -149,6 +149,7 @@
             "enum": [
               "domain_pair",
               "net_class",
+              "net_class_pair",
               "port",
               "component",
               "board"
@@ -178,7 +179,7 @@
         "if": {
           "properties": {
             "kind": {
-              "const": "domain_pair"
+              "enum": ["domain_pair", "net_class_pair"]
             }
           }
         },

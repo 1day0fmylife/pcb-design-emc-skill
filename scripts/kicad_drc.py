@@ -44,6 +44,18 @@ def enrich_item(item, index, board_items):
     return result | {"project_context": derived | metadata, "board_match": "matched", "board_item": native}
 
 
+def finding_object(affected, metric, net_class_pairs):
+    object_ids = {item["project_context"].get("object_id") for item in affected}
+    if len(object_ids) == 1:
+        return next(iter(object_ids))
+    if metric != "copper_gap" or len(affected) != 2:
+        return None
+    nets = {item["project_context"].get("net") for item in affected}
+    if len(nets) == 2 and None not in nets:
+        return net_class_pairs.get(frozenset(object_ids))
+    return None
+
+
 def import_drc(profile, report, context, artifact, known_rules, board=None):
     if context["design_revision"] != profile["design_revision"]:
         raise ValueError("Ревизия контекста KiCad не совпадает с профилем")
@@ -66,11 +78,19 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
         raise ValueError("track_width_bounds содержит указатель, по которому нет замечания track_width")
 
     objects = profile["review_objects"]
+    net_class_pairs = {
+        frozenset(item["members"]): object_id for object_id, item in objects.items()
+        if item["kind"] == "net_class_pair"
+    }
     index = context.get("items", {})
     for uuid, metadata in index.items():
         object_id = metadata.get("object_id")
-        if object_id is not None and object_id not in objects:
+        if object_id is None:
+            continue
+        if object_id not in objects:
             raise ValueError(f"{uuid} — неизвестный объект профиля {object_id}")
+        if objects[object_id]["kind"] == "net_class_pair":
+            raise ValueError(f"{uuid} — для привязки объекта KiCad укажите ID отдельного класса сетей")
 
     criteria_by_object = {}
     for criterion_id, criterion in profile["criteria"].items():
@@ -107,12 +127,12 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
                     metric = None
             if rule_id not in known_rules or section != "violations":
                 rule_id = metric = None
-            object_ids = {item["project_context"].get("object_id") for item in affected}
-            shared_object = next(iter(object_ids)) if len(object_ids) == 1 else None
             objects_resolved = board is None or all(item["board_match"] == "matched" for item in affected)
+            candidate_object = finding_object(affected, metric, net_class_pairs) if (
+                rule_id and metric and not excluded and objects_resolved
+            ) else None
             candidates = (
-                criteria_by_object.get((shared_object, metric, rule_id), [])
-                if rule_id and shared_object and not excluded and objects_resolved else []
+                criteria_by_object.get((candidate_object, metric, rule_id), []) if candidate_object else []
             )
             findings.append(violation | {
                 "items": affected,
@@ -121,6 +141,7 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
                 "status": "REVIEW_REQUIRED",
                 "candidate_rule_id": rule_id,
                 "candidate_metric": metric,
+                "candidate_object_id": candidate_object,
                 "candidate_criterion_ids": candidates,
                 "evidence_ref": {"artifact": artifact, "locator": locator},
             })
