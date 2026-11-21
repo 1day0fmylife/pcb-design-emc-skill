@@ -24,6 +24,9 @@ if __package__:
     from .kicad_checks import run_kicad_checks
     from .kicad_drc import import_drc
     from .kicad_netlist import compare_netlist, read_kicad_netlist
+    from .kicad_probe import probe_kicad
+    from .mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
+    from .mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from .pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 else:
     from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
@@ -31,6 +34,9 @@ else:
     from kicad_checks import run_kicad_checks
     from kicad_drc import import_drc
     from kicad_netlist import compare_netlist, read_kicad_netlist
+    from kicad_probe import probe_kicad
+    from mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
+    from mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 
 
@@ -105,7 +111,7 @@ class ProfileReview:
         self.profiles = root / "profiles"
         self.validators = {}
         for name in ("profile", "catalog", "profile-checks", "report", "kicad-drc", "kicad-erc", "kicad-context",
-                     "fabrication-stackup"):
+                     "fabrication-stackup", "mechanical-holes"):
             schema_path = root / "schemas" / f"{name}.schema.json"
             schema = load_document(schema_path)
             try:
@@ -430,19 +436,31 @@ class ProfileReview:
         result = import_drc(profile, report, context, str(report_path), self.rules, board)
         return result | {"context_artifact": str(context_path)}
 
+    def load_criteria_artifact(self, path, schema):
+        if path is None:
+            return None, None
+        if path.suffix.lower() not in PROFILE_FORMATS:
+            raise ValueError(f"{path} — файл критериев должен быть в формате YAML или JSON")
+        data = path.read_bytes()
+        document = load_document(path, content=data.decode("utf-8"))
+        validate_document(document, self.validators[schema], path)
+        return document, {"source": str(path), "sha256": sha256(data).hexdigest()}
+
     def compare_stackup(self, board_path, fabrication_path, design_revision):
-        fabrication = artifact = None
-        if fabrication_path is not None:
-            if fabrication_path.suffix.lower() not in PROFILE_FORMATS:
-                raise ValueError("Для листа изготовителя укажите файл YAML или JSON")
-            data = fabrication_path.read_bytes()
-            fabrication = load_document(fabrication_path, content=data.decode("utf-8"))
-            validate_document(fabrication, self.validators["fabrication-stackup"], fabrication_path)
+        fabrication, artifact = self.load_criteria_artifact(fabrication_path, "fabrication-stackup")
+        if fabrication is not None:
             validate_fabrication_criteria(fabrication)
-            artifact = {"source": str(fabrication_path), "sha256": sha256(data).hexdigest()}
         board = read_board_inventory(board_path, stackup_only=True) if board_path is not None else None
         result = compare_fabrication_stackup(board, fabrication, design_revision)
         return result | {"fabrication_artifact": artifact}
+
+    def compare_mounting(self, board_path, mechanical_path, design_revision):
+        mechanical, artifact = self.load_criteria_artifact(mechanical_path, "mechanical-holes")
+        if mechanical is not None:
+            validate_mechanical_criteria(mechanical)
+        board = read_board_inventory(board_path) if board_path is not None else None
+        result = compare_mechanical_holes(board, mechanical, design_revision)
+        return result | {"mechanical_artifact": artifact}
 
     def validate(self, extra_paths):
         paths = self.built_in_paths()
@@ -460,6 +478,9 @@ class ProfileReview:
             self.check_names((item["rule_id"] for item in report["findings"]), self.rules, str(path))
         for path in sorted((self.root / "examples").glob("fabrication-stackup*.yaml")):
             validate_fabrication_criteria(self.load_validated(path, "fabrication-stackup"))
+        self.check_names(MECHANICAL_RULE_IDS, self.rules, "compare-mounting")
+        for path in sorted((self.root / "examples").glob("mechanical-holes*.yaml")):
+            validate_mechanical_criteria(self.load_validated(path, "mechanical-holes"))
         return len(paths)
 
     def built_in_paths(self):
@@ -673,6 +694,11 @@ def arguments():
     fabrication.add_argument("--fabrication", type=Path, help="Критерии изготовителя в YAML или JSON")
     fabrication.add_argument("--design-revision", help="Ревизия платы, к которой относится лист")
     fabrication.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    mounting = commands.add_parser("compare-mounting", help="Сверить монтажные отверстия KiCad с чертежом")
+    mounting.add_argument("--board", type=Path, help="Плата .kicad_pcb")
+    mounting.add_argument("--mechanical", type=Path, help="Критерии чертежа в YAML или JSON")
+    mounting.add_argument("--design-revision", help="Ревизия платы, к которой относится чертёж")
+    mounting.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     checks = commands.add_parser("run-checks", help="Запустить ERC и DRC на временной копии проекта")
     checks.add_argument("--schematic", type=Path, help="Корневой файл .kicad_sch")
     checks.add_argument("--board", type=Path, help="Файл .kicad_pcb")
@@ -682,6 +708,10 @@ def arguments():
     checks.add_argument("--kicad-cli", default="kicad-cli", help="Имя или путь к установленному KiCad CLI")
     checks.add_argument("--timeout", type=int, default=120, help="Лимит секунд на каждый вызов KiCad")
     checks.add_argument("--refill-zones", action="store_true", help="Пересчитать заливку в памяти при DRC")
+    probe = commands.add_parser("probe-kicad", help="Проверить доступность команд KiCad CLI и Python API")
+    probe.add_argument("--kicad-cli", default="kicad-cli", help="Имя или путь к установленному KiCad CLI")
+    probe.add_argument("--timeout", type=int, default=10, help="Лимит секунд на каждый запрос к KiCad CLI")
+    probe.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     parity = commands.add_parser("compare-netlist", help="Сверить выводы схемы и PCB по XML-нетлисту")
     parity.add_argument("--board", type=Path, help="Плата .kicad_pcb")
     parity.add_argument("--netlist", type=Path, help="XML-нетлист из KiCad")
@@ -745,6 +775,16 @@ def main():
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для сверки стека укажите выходной файл .json")
             emit(as_json(review.compare_stackup(args.board, args.fabrication, args.design_revision)), args.output)
+        elif args.command == "compare-mounting":
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для сверки отверстий укажите выходной файл .json")
+            emit(as_json(review.compare_mounting(args.board, args.mechanical, args.design_revision)), args.output)
+        elif args.command == "probe-kicad":
+            if args.timeout <= 0:
+                raise ValueError("--timeout должен быть положительным")
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для диагностики KiCad укажите выходной файл .json")
+            emit(as_json(probe_kicad(args.kicad_cli, args.timeout)), args.output)
         elif args.command == "run-checks":
             if args.timeout <= 0:
                 raise ValueError("--timeout должен быть положительным")

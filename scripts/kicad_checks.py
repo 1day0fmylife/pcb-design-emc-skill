@@ -100,6 +100,19 @@ def execute(command, directory, environment, timeout):
         return {"exit_code": None, "stdout": "", "stderr": str(error)}
 
 
+def probe_options(command, directory, environment, timeout):
+    result = execute([*command, "--help"], directory, environment, timeout)
+    help_text = result["stdout"] + "\n" + result["stderr"]
+    return result, set(re.findall(r"--[a-z][a-z-]+", help_text))
+
+
+def isolated_environment(temporary):
+    return os.environ | {
+        "KICAD_CONFIG_HOME": str(temporary / "config"), "XDG_CONFIG_HOME": str(temporary / "xdg-config"),
+        "XDG_CACHE_HOME": str(temporary / "cache"), "LC_ALL": "C",
+    }
+
+
 def user_configuration():
     if os.environ.get("KICAD_CONFIG_HOME"):
         return Path(os.environ["KICAD_CONFIG_HOME"])
@@ -178,8 +191,7 @@ def run_check(kind, relative, board_root, output, executable, environment, timeo
     family = CHECKS[kind][0]
     command = [executable, family, kind]
     flags = [*FLAGS, "--refill-zones"] if kind == "drc" and refill_zones else FLAGS
-    help_result = execute([*command, "--help"], board_root, environment, timeout)
-    options = set(re.findall(r"--[a-z][a-z-]+", help_result["stdout"] + help_result["stderr"]))
+    help_result, options = probe_options(command, board_root, environment, timeout)
     absent = sorted(set(flags) - options)
     entry = {"input": relative.as_posix(), "status": "NOT_EVALUATED"}
     if help_result["exit_code"] != 0 or absent:
@@ -230,10 +242,7 @@ def run_kicad_checks(inputs, project_dir, output, revision, executable, timeout,
         with tempfile.TemporaryDirectory(prefix="pcb-kicad-checks-") as directory:
             temporary = Path(directory).resolve()
             snapshot, manifest, skipped = snapshot_project(project, temporary)
-            environment = os.environ | {
-                "KICAD_CONFIG_HOME": str(temporary / "config"), "XDG_CONFIG_HOME": str(temporary / "xdg-config"),
-                "XDG_CACHE_HOME": str(temporary / "cache"), "LC_ALL": "C",
-            }
+            environment = isolated_environment(temporary)
             probe = execute([executable, "version"], snapshot, environment, timeout)
             if probe["exit_code"] == 0 and probe["stdout"].strip():
                 version = probe["stdout"].strip()

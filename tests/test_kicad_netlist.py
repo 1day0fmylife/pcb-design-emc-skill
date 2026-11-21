@@ -95,6 +95,33 @@ class NetlistComparisonTest(unittest.TestCase):
         self.assertEqual(result["checked_pins"], 0)
         self.assertIn("ambiguous_schematic_pin", [item["kind"] for item in result["findings"]])
 
+    def test_unclassified_pads_require_review_only_where_they_affect_parity(self):
+        items = self.board["items"]
+        items["npth-unnumbered"] = pad("R2", "", "r", electrical=None)
+        items["npth-board-only"] = pad("H1", "", "m", "GND", electrical=None)
+        items["npth-extra"] = pad("R2", "4", "r", electrical=None)
+        self.assertEqual(self.run_comparison()["overall_status"], "PASS")
+
+        items["pad-1"]["electrical"] = None
+        items["npth-extra"].update(net="GND", netlist_name="GND")
+        items["npth-duplicate"] = pad("R2", "1", "r", "VCC", electrical=None)
+        unknown = self.run_comparison()
+        self.assertEqual(unknown["overall_status"], "REVIEW_REQUIRED")
+        self.assertEqual(unknown["checked_pins"], 2)
+        self.assertEqual({row["kind"] for row in unknown["findings"]}, {"unresolved_pad_electrical"})
+        self.assertEqual({(row["refdes"], row["pin"], row["unclassified_pads"][0]["uuid"])
+                          for row in unknown["findings"]},
+                         {("U1", "1", "pad-1"), ("R2", "1", "npth-duplicate"), ("R2", "4", "npth-extra")})
+
+        items["pad-4"].update(net="VCC", netlist_name="VCC")
+        items["npth-unnumbered"]["net"] = "GND"
+        result = self.run_comparison()
+        self.assertEqual(result["overall_status"], "FAIL")
+        failure, = [row for row in result["findings"] if row["status"] == "FAIL"]
+        self.assertEqual((failure["kind"], failure["refdes"], failure["pin"]), ("net_mismatch", "R2", "1"))
+        self.assertTrue(any(row.get("unclassified_pads") == [{"uuid": "npth-unnumbered", "net": "GND"}]
+                            for row in result["findings"]))
+
     def test_rejects_non_kicad_xml_and_dtd(self):
         for invalid in ("<data/>", "<!DOCTYPE export><export/>"):
             self.netlist_path.write_text(invalid, encoding="utf-8")

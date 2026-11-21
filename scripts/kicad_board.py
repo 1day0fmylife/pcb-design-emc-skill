@@ -3,6 +3,7 @@
 from collections import Counter
 from hashlib import sha256
 from itertools import chain
+from math import atan2, degrees
 
 if __package__:
     from .kicad_stackup import collect_stackup
@@ -58,8 +59,31 @@ def pad_hole(pad, pcbnew):
     if size.x <= 0 or size.y <= 0:
         return None
     shapes = {pcbnew.PAD_DRILL_SHAPE_CIRCLE: "circle", pcbnew.PAD_DRILL_SHAPE_OBLONG: "oblong"}
+    shape = shapes.get(pad.GetDrillShape())
     x_mm, y_mm = pcbnew.ToMM(size)
-    return {"kind": kind, "shape": shapes.get(pad.GetDrillShape()), "x_mm": x_mm, "y_mm": y_mm}
+    hole = {"kind": kind, "shape": shape, "x_mm": x_mm, "y_mm": y_mm}
+    get_hole_shape = getattr(pad, "GetEffectiveHoleShape", None)
+    effective = get_hole_shape() if get_hole_shape is not None else None
+    get_segment = getattr(effective, "GetSeg", None)
+    if get_segment is not None:
+        segment = get_segment()
+        hole["center_mm"] = {
+            "x": pcbnew.ToMM(segment.A.x + segment.B.x) / 2,
+            "y": pcbnew.ToMM(segment.A.y + segment.B.y) / 2,
+        }
+        if shape == "oblong" and (segment.A.x != segment.B.x or segment.A.y != segment.B.y):
+            angle = degrees(atan2(segment.B.y - segment.A.y, segment.B.x - segment.A.x))
+            hole["axis_angle_deg"] = angle % 180
+    return hole
+
+
+def pad_electrical(pad, pcbnew):
+    if not pad.IsOnCopperLayer():
+        return False
+    if pad.GetAttribute() != pcbnew.PAD_ATTRIB_NPTH:
+        return True
+    no_copper = getattr(pad, "IsNPTHWithNoCopper", None)
+    return not no_copper() if no_copper is not None else None
 
 
 def collect_objects(board, pcbnew):
@@ -94,7 +118,7 @@ def collect_objects(board, pcbnew):
             row["board_only"] = bool(item.IsBoardOnly())
         if pad_number is not None:
             row["pad_number"] = pad_number
-            row["electrical"] = bool(item.IsOnCopperLayer() and not item.IsNPTHWithNoCopper())
+            row["electrical"] = pad_electrical(item, pcbnew)
             hole = pad_hole(item, pcbnew)
             if hole is not None:
                 row["hole"] = hole

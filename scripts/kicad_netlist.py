@@ -84,6 +84,7 @@ def compare_components(board_items, netlist):
     footprints = defaultdict(list)
     board_only = set()
     pads = defaultdict(list)
+    unclassified = defaultdict(list)
     pcb_net_names = defaultdict(set)
     findings = []
     for uuid, item in board_items.items():
@@ -100,15 +101,26 @@ def compare_components(board_items, netlist):
             footprints[refdes].append(uuid)
 
     for uuid, item in board_items.items():
-        if item["kind"] != "PAD" or not item["electrical"] or item.get("footprint_uuid") in board_only:
+        if item["kind"] != "PAD" or item.get("footprint_uuid") in board_only:
+            continue
+        electrical = item.get("electrical")
+        if electrical is False:
             continue
         refdes = item.get("refdes")
-        if not item["pad_number"]:
+        pin = item["pad_number"]
+        if electrical is None:
+            evidence = {"uuid": uuid, "net": item.get("net")}
+            if pin:
+                unclassified[(refdes, pin)].append(evidence)
+            elif evidence["net"]:
+                findings.append({"status": "REVIEW_REQUIRED", "kind": "unresolved_pad_electrical",
+                                 "refdes": refdes, "unclassified_pads": [evidence]})
+        elif not pin:
             if item.get("net"):
                 findings.append({"status": "REVIEW_REQUIRED", "kind": "unnumbered_connected_pad",
                                  "refdes": refdes, "pad_uuids": [uuid]})
         else:
-            pads[(refdes, item["pad_number"])].append((uuid, item))
+            pads[(refdes, pin)].append((uuid, item))
             if "netlist_name" in item:
                 pcb_net_names[item["netlist_name"]].add(item["net"])
 
@@ -129,33 +141,42 @@ def compare_components(board_items, netlist):
     comparable = {refdes for refdes in footprints.keys() & components if len(footprints[refdes]) == 1}
     ambiguous_nets = {name for name, originals in pcb_net_names.items() if len(originals) > 1}
     expected = netlist["pins"]
-    keys = {key for key in expected.keys() | pads.keys() if key[0] in comparable}
+    keys = {key for key in expected.keys() | pads.keys() | unclassified.keys() if key[0] in comparable}
     checked = 0
     for refdes, pin in sorted(keys):
         requirement = expected.get((refdes, pin))
         actual = pads.get((refdes, pin), ())
+        unknown = unclassified.get((refdes, pin), ())
         raw_nets = {row["net"] for _, row in actual if "net" in row}
         actual_nets = {row.get("netlist_name") for _, row in actual}
         evidence = {"refdes": refdes, "pin": pin, "pad_uuids": [uuid for uuid, _ in actual],
                     "pcb_nets": sorted(raw_nets)}
+        if unknown:
+            evidence["unclassified_pads"] = unknown
+        unresolved = {"status": "REVIEW_REQUIRED", "kind": "unresolved_pad_electrical"}
         if requirement is None:
             if raw_nets:
                 findings.append(evidence | {"status": "FAIL", "kind": "extra_connected_pad"})
+            elif any(row["net"] for row in unknown):
+                findings.append(evidence | unresolved)
             continue
         evidence["schematic_net"] = requirement["name"]
         if not actual:
-            findings.append(evidence | {"status": "FAIL", "kind": "missing_pad"})
+            findings.append(evidence | (unresolved if unknown else {"status": "FAIL", "kind": "missing_pad"}))
         elif any("net" in row and "netlist_name" not in row for _, row in actual):
             findings.append(evidence | {"status": "REVIEW_REQUIRED", "kind": "unresolved_pcb_net"})
         elif actual_nets & ambiguous_nets:
             findings.append(evidence | {"status": "REVIEW_REQUIRED", "kind": "ambiguous_pcb_net_name"})
         else:
-            checked += 1
             allowed = {requirement["name"]}
             if requirement["no_connect"]:
                 allowed.add(None)
             if actual_nets - allowed:
                 findings.append(evidence | {"status": "FAIL", "kind": "net_mismatch"})
+            elif unknown:
+                findings.append(evidence | unresolved)
+                continue
+            checked += 1
     return findings, checked, len(comparable)
 
 

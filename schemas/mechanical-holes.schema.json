@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mounting hole comparison criteria",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "design_revision": {"$ref": "#/$defs/optional_text"},
+    "board_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$", "minLength": 64, "maxLength": 64},
+    "source": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "document": {"$ref": "#/$defs/optional_text"},
+        "revision": {"$ref": "#/$defs/optional_text"},
+        "section": {"$ref": "#/$defs/optional_text"}
+      }
+    },
+    "coordinate_system": {"enum": ["kicad_pcb_absolute_xy_mm", null]},
+    "holes": {
+      "type": ["object", "null"],
+      "propertyNames": {"pattern": "\\S"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pad_uuid": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}$",
+            "minLength": 36,
+            "maxLength": 36
+          },
+          "kind": {"enum": ["PTH", "NPTH", null]},
+          "shape": {"enum": ["circle", "oblong", null]},
+          "x_mm": {"$ref": "#/$defs/coordinate_range"},
+          "y_mm": {"$ref": "#/$defs/coordinate_range"},
+          "diameter_mm": {"$ref": "#/$defs/dimension_range"},
+          "width_mm": {"$ref": "#/$defs/dimension_range"},
+          "length_mm": {"$ref": "#/$defs/dimension_range"},
+          "axis_angle_deg": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "nominal": {"type": ["number", "null"], "minimum": 0, "exclusiveMaximum": 180},
+              "tolerance": {"type": ["number", "null"], "minimum": 0, "maximum": 90}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "optional_text": {"type": ["string", "null"], "pattern": "\\S"},
+    "coordinate_range": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "min": {"type": ["number", "null"]},
+        "max": {"type": ["number", "null"]}
+      }
+    },
+    "dimension_range": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "min": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "max": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      }
+    }
+  }
+}
