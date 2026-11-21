@@ -6,6 +6,7 @@ import math
 import re
 import sys
 from collections import Counter, defaultdict
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 
@@ -28,7 +29,7 @@ if __package__:
     from .kicad_trace_width import compare_trace_width
     from .mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
     from .mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
-    from .pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
+    from .pcb_criteria import criterion_plan, parse_calendar_date, validate_matrix, validate_report_findings
     from .pcb_evidence import verify_evidence_artifacts
 else:
     from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
@@ -40,7 +41,7 @@ else:
     from kicad_trace_width import compare_trace_width
     from mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
     from mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
-    from pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
+    from pcb_criteria import criterion_plan, parse_calendar_date, validate_matrix, validate_report_findings
     from pcb_evidence import verify_evidence_artifacts
 
 
@@ -425,16 +426,20 @@ class ProfileReview:
             "information_security": security_scope,
         }
 
-    def validate_report(self, profile, path, artifact_root=None):
+    def validate_report(self, profile, path, artifact_root=None, *, as_of=None):
         if path.suffix.lower() != ".json":
             raise ValueError("Инженерный отчёт должен быть файлом .json")
         report = self.load_validated(path, "report")
-        validate_report_findings(profile, report, self.analyze(profile))
+        as_of = as_of or date.today()
+        waiver_count = validate_report_findings(profile, report, self.analyze(profile), as_of=as_of)
+        result = {}
         if "evidence_artifacts" in report:
-            return verify_evidence_artifacts(report, artifact_root or path.parent, load_document)
-        if artifact_root is not None:
+            result.update(verify_evidence_artifacts(report, artifact_root or path.parent, load_document))
+        elif artifact_root is not None:
             raise ValueError("Для --artifact-root в отчёте требуется evidence_artifacts")
-        return None
+        if waiver_count:
+            result.update(waivers=waiver_count, as_of=as_of.isoformat())
+        return result or None
 
     def import_drc(self, profile, report_path, context_path, board_path=None):
         if report_path.suffix.lower() != ".json":
@@ -698,6 +703,7 @@ def arguments():
     result.add_argument("profile", help="ID либо путь к профилю")
     result.add_argument("report", type=Path, help="Инженерный отчёт JSON")
     result.add_argument("--artifact-root", type=Path, help="Каталог артефактов, по умолчанию каталог отчёта")
+    result.add_argument("--as-of", help="Дата проверки срока исключений YYYY-MM-DD, по умолчанию сегодня")
     drc = commands.add_parser("import-drc", help="Импортировать готовый JSON-отчёт KiCad DRC")
     drc.add_argument("profile", help="ID либо путь к профилю")
     drc.add_argument("report", type=Path, help="Отчёт KiCad DRC JSON")
@@ -779,11 +785,14 @@ def main():
             print(f"Встроенные профили — {count}. Дополнительные профили — {len(args.profiles)}.")
         elif args.command == "validate-report":
             profile = review.profile(review.profile_path(args.profile))
-            verified = review.validate_report(profile, args.report, args.artifact_root)
+            as_of = parse_calendar_date(args.as_of) if args.as_of is not None else None
+            verified = review.validate_report(profile, args.report, args.artifact_root, as_of=as_of) or {}
             print("Отчёт согласован со схемой, профилем и заявленными результатами.")
-            if verified is not None:
+            if "artifacts" in verified:
                 print(f"Проверено артефактов по SHA-256 — {verified['artifacts']}. "
                       f"Проверено указателей JSON — {verified['references']}.")
+            if "waivers" in verified:
+                print(f"Проверено исключений — {verified['waivers']}. Дата проверки — {verified['as_of']}.")
         elif args.command == "import-drc":
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для импорта DRC укажите выходной файл .json")
