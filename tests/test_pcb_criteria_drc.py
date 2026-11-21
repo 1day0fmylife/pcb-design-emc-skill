@@ -60,6 +60,40 @@ class CriteriaAndDrcTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "повтор критерия"):
             self.review.resolve_profile(chain)
 
+    def class_pair_chain(self):
+        chain = self.review.load_profile_chain(FIXTURE / "profile.yaml")
+        chain[-1]["review_objects"].update({
+            "POWER": {"kind": "net_class", "modes": ["normal", "service"]},
+            "SIGNAL": {"kind": "net_class", "modes": ["normal", "service"]},
+            "SIGNAL-POWER": {
+                "kind": "net_class_pair", "members": ["SIGNAL", "POWER"], "modes": ["normal", "service"],
+            },
+        })
+        return chain
+
+    def test_pairs_of_net_classes_require_valid_members_and_common_modes(self):
+        chain = self.class_pair_chain()
+        leaf = chain[-1]
+        validate_document(leaf, self.review.validators["profile"], "fixture")
+        profile = self.review.resolve_profile(chain)
+        rows = [row for row in self.review.analyze(profile)["criterion_plan"] if row["object_id"] == "SIGNAL-POWER"]
+        self.assertEqual([(row["mode"], row["metric"], row["rule_id"], row["status"]) for row in rows], [
+            ("normal", "copper_gap", "PCB-GEO-001", "REVIEW_REQUIRED"),
+            ("service", "copper_gap", "PCB-GEO-001", "REVIEW_REQUIRED"),
+        ])
+        objects = leaf["review_objects"]
+        pair = objects["SIGNAL-POWER"]
+        objects["POWER-SIGNAL"] = pair | {"members": list(reversed(pair["members"]))}
+        with self.assertRaisesRegex(ValueError, "Повтор пары классов сетей"):
+            self.review.resolve_profile(chain)
+        del objects["POWER-SIGNAL"]
+        objects["POWER"]["modes"].remove("service")
+        with self.assertRaisesRegex(ValueError, "не объявлен в режимах service"):
+            self.review.resolve_profile(chain)
+        pair["members"][1] = "UNKNOWN"
+        with self.assertRaisesRegex(ValueError, "объявленным объектом net_class"):
+            self.review.resolve_profile(chain)
+
     def test_report_compares_result_to_distinct_object_criteria(self):
         # Arbitrary synthetic test input exercises the implementation. It is not a PCB design limit.
         chain = self.review.load_profile_chain(FIXTURE / "profile.yaml")
@@ -151,6 +185,47 @@ class CriteriaAndDrcTest(unittest.TestCase):
         self.assertTrue(excluded["excluded"])
         self.assertTrue(all(item["status"] == "REVIEW_REQUIRED" for item in report["findings"]))
         self.review.validate_report(self.resolve_fixture(), FIXTURE / "review.json")
+
+    def test_drc_clearance_links_unordered_pair_with_two_known_classes_and_nets(self):
+        chain = self.class_pair_chain()
+        leaf = chain[-1]
+        criterion = {"object_id": "SIGNAL-POWER", "rule_id": "PCB-GEO-001", "metric": "copper_gap",
+                     "unit": "mm", "limit": None}
+        leaf["criteria"].update({"PAIR-NORMAL": criterion | {"mode": "normal"},
+                                 "PAIR-SERVICE": criterion | {"mode": "service"}})
+        validate_document(leaf, self.review.validators["profile"], "fixture")
+        profile = self.review.resolve_profile(chain)
+        source = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")
+        context = self.review.load_validated(FIXTURE / "drc-context.yaml", "kicad-context")
+        violation = source["violations"][0]
+        first, second = [item["uuid"] for item in violation["items"]]
+        items = {first: {"object_id": "POWER", "net": "PWR"}, second: {"object_id": "SIGNAL", "net": "CTRL"}}
+
+        def finding(affected=violation, metadata=items, mode="normal", board=None):
+            return import_drc(profile, source | {"violations": [affected]}, context | {"items": metadata, "mode": mode},
+                              "fixture.json", self.review.rules, board)["findings"][0]
+
+        result = finding(violation | {"items": list(reversed(violation["items"]))})
+        self.assertEqual(result["candidate_object_id"], "SIGNAL-POWER")
+        self.assertEqual(result["candidate_criterion_ids"], ["PAIR-NORMAL"])
+        self.assertEqual(result["status"], "REVIEW_REQUIRED")
+        self.assertEqual(finding(mode=None)["candidate_criterion_ids"], ["PAIR-NORMAL", "PAIR-SERVICE"])
+        self.assertEqual(finding(mode="service")["candidate_criterion_ids"], ["PAIR-SERVICE"])
+        self.assertEqual(finding(mode="unknown")["candidate_criterion_ids"], [])
+        self.assertIsNone(finding(violation | {"excluded": True})["candidate_object_id"])
+        self.assertIsNone(finding(violation | {"type": "track_width"})["candidate_object_id"])
+        self.assertIsNone(finding(metadata={first: items[first], second: {"object_id": "SIGNAL"}})["candidate_object_id"])
+        self.assertIsNone(finding(metadata=items | {second: items[second] | {"net": "PWR"}})["candidate_object_id"])
+        self.assertIsNone(finding(metadata={first: items[first]})["candidate_object_id"])
+
+        board = {"source": source["source"], "board_sha256": "a" * 64, "pcbnew_version": "10.0.8",
+                 "items": {uuid: {"net": item["net"], "layers": ["F.Cu"]} for uuid, item in items.items()}}
+        metadata = {uuid: {"object_id": item["object_id"]} for uuid, item in items.items()}
+        self.assertEqual(finding(metadata=metadata, board=board)["candidate_criterion_ids"], ["PAIR-NORMAL"])
+        del board["items"][first]
+        self.assertIsNone(finding(board=board)["candidate_object_id"])
+        with self.assertRaisesRegex(ValueError, "ID отдельного класса"):
+            finding(metadata={first: {"object_id": "SIGNAL-POWER"}})
 
     def test_drc_leaves_unknown_objects_unmapped_and_empty_report_unevaluated(self):
         source = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")

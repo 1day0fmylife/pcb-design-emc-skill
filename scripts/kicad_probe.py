@@ -43,6 +43,7 @@ PCBNEW_REQUIREMENTS = {
         *OBJECT_INVENTORY, "PAD.GetEffectiveHoleShape", "SHAPE_SEGMENT.GetSeg", "SEG.A", "SEG.B",
     ),
     "npth_copper_classification": ("PAD.IsNPTHWithNoCopper",),
+    "trace_width": (*OBJECT_INVENTORY, "PCB_TRACK.GetWidth", "PCB_ARC.GetWidth"),
 }
 
 

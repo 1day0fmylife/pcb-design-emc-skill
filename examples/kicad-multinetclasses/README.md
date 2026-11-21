@@ -37,3 +37,13 @@ KiCad выдал две ошибки `track_width` на `F.Cu`. Ширина с�
 В режиме `--board` сопоставились все шесть объектов DRC. Для двух дорожек извлечены сеть и слой, для четырёх посадочных мест — RefDes.
 
 Перед использованием [файла контекста](context.yaml) с другим экспортом сверьте позиции `/violations/0` и `/violations/1` с UUID и верхней границей из правила. В `track_width_bounds` записывается подтверждённое направление `min` или `max` для каждой позиции. [Использованный профиль](profile.yaml)
+
+## Сверка измерений из PCB
+
+```sh
+python3 scripts/pcb_profile.py compare-trace-width examples/kicad-multinetclasses/profile.yaml \
+  --board "$qa_dir/multinetclasses_drc.kicad_pcb" --context examples/kicad-multinetclasses/context.yaml \
+  --output "$qa_dir/trace-width.json"
+```
+
+Сверка через `pcbnew` дала два `FAIL` по `RULE-3-MAX` для тех же UUID. Ширина читается из PCB, а направление границы берётся из метрики в профиле. [Охват и статусы команды](../../references/rules-engine.md#сверка-ширины-дорожек)

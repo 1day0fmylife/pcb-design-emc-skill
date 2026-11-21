@@ -12,6 +12,7 @@ else:
 
 
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
+TRACE_KINDS = {"PCB_TRACK", "PCB_ARC"}
 
 
 def read_board_inventory(path, *, stackup_only=False):
@@ -116,6 +117,10 @@ def collect_objects(board, pcbnew):
             row["footprint_uuid"] = footprint_uuid
         if kind == "FOOTPRINT":
             row["board_only"] = bool(item.IsBoardOnly())
+        if kind in TRACE_KINDS:
+            get_width = getattr(item, "GetWidth", None)
+            if get_width is not None and (width := get_width()) > 0:
+                row["width_mm"] = pcbnew.ToMM(width)
         if pad_number is not None:
             row["pad_number"] = pad_number
             row["electrical"] = pad_electrical(item, pcbnew)

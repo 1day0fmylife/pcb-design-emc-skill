@@ -5,13 +5,17 @@ from decimal import Decimal
 
 
 METRICS = {
-    "clearance": ("domain_pair", ("PCB-GEO-002",), "mm"),
-    "creepage": ("domain_pair", ("PCB-GEO-002",), "mm"),
-    "copper_gap": ("net_class", ("PCB-GEO-001", "PCB-DFM-001"), "mm"),
-    "copper_to_edge": ("board", ("PCB-GEO-003",), "mm"),
-    "trace_width": ("net_class", ("PCB-DFM-001",), "mm"),
-    "trace_width_max": ("net_class", ("PCB-DFM-001",), "mm"),
-    "controlled_impedance": ("port", ("PCB-HS-001",), "ohm"),
+    "clearance": (("domain_pair",), ("PCB-GEO-002",), "mm"),
+    "creepage": (("domain_pair",), ("PCB-GEO-002",), "mm"),
+    "copper_gap": (("net_class", "net_class_pair"), ("PCB-GEO-001", "PCB-DFM-001"), "mm"),
+    "copper_to_edge": (("board",), ("PCB-GEO-003",), "mm"),
+    "trace_width": (("net_class",), ("PCB-DFM-001",), "mm"),
+    "trace_width_max": (("net_class",), ("PCB-DFM-001",), "mm"),
+    "controlled_impedance": (("port",), ("PCB-HS-001",), "ohm"),
+}
+PAIR_METRICS = {
+    "domain_pair": (("clearance", "PCB-GEO-002"), ("creepage", "PCB-GEO-002")),
+    "net_class_pair": (("copper_gap", "PCB-GEO-001"),),
 }
 
 
@@ -22,11 +26,22 @@ def criterion_key(criterion):
 def validate_matrix(objects, criteria, rule_ids):
     pairs = {}
     for object_id, item in objects.items():
-        if item["kind"] == "domain_pair":
-            pair = frozenset(item["members"])
-            if pair in pairs:
-                raise ValueError(f"Повтор пары доменов в {object_id} и {pairs[pair]}")
-            pairs[pair] = object_id
+        kind = item["kind"]
+        if kind not in PAIR_METRICS:
+            continue
+        pair = (kind, frozenset(item["members"]))
+        if pair in pairs:
+            label = "доменов" if kind == "domain_pair" else "классов сетей"
+            raise ValueError(f"Повтор пары {label} в {object_id} и {pairs[pair]}")
+        pairs[pair] = object_id
+        if kind == "net_class_pair":
+            for member in item["members"]:
+                member_object = objects.get(member, {})
+                if member_object.get("kind") != "net_class":
+                    raise ValueError(f"{object_id} — участник {member} должен быть объявленным объектом net_class")
+                unsupported_modes = sorted(set(item["modes"]) - set(member_object["modes"]))
+                if unsupported_modes:
+                    raise ValueError(f"{object_id} — класс {member} не объявлен в режимах {', '.join(unsupported_modes)}")
 
     slots = set()
     for criterion_id, criterion in criteria.items():
@@ -39,9 +54,9 @@ def validate_matrix(objects, criteria, rule_ids):
             raise ValueError(f"{criterion_id} — неизвестное правило {criterion['rule_id']}")
         if metric == "qualitative":
             continue
-        kind, rules, unit = METRICS[metric]
-        if objects[object_id]["kind"] != kind:
-            raise ValueError(f"{criterion_id} — метрика {metric} требует объект {kind}")
+        kinds, rules, unit = METRICS[metric]
+        if objects[object_id]["kind"] not in kinds:
+            raise ValueError(f"{criterion_id} — метрика {metric} требует объект {' или '.join(kinds)}")
         if criterion["rule_id"] not in rules:
             raise ValueError(f"{criterion_id} — правило {criterion['rule_id']} не связано с метрикой {metric}")
         if criterion["unit"] != unit:
@@ -64,14 +79,12 @@ def criterion_plan(objects, criteria):
     slots = {criterion_key(entry) for entry in criteria.values()}
     entries = [(name, entry) for name, entry in criteria.items()]
     for object_id, item in objects.items():
-        if item["kind"] != "domain_pair":
-            continue
         for mode in item["modes"]:
-            for metric in ("clearance", "creepage"):
+            for metric, rule_id in PAIR_METRICS.get(item["kind"], ()):
                 if (object_id, mode, metric) not in slots:
                     entries.append((None, {
                         "object_id": object_id, "mode": mode, "metric": metric,
-                        "rule_id": "PCB-GEO-002", "unit": "mm", "limit": None,
+                        "rule_id": rule_id, "unit": "mm", "limit": None,
                     }))
 
     plan = []
