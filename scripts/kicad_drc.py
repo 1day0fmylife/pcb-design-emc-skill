@@ -7,6 +7,17 @@ from collections import Counter
 SECTIONS = ("violations", "unconnected_items", "schematic_parity")
 VIOLATION_RULES = {
     "clearance": ("PCB-GEO-001", "copper_gap"),
+    "copper_edge_clearance": ("PCB-GEO-003", "copper_to_edge"),
+    "copper_outside_board": ("PCB-GEO-003", None),
+    "annular_width": ("PCB-GEO-005", None),
+    "hole_clearance": ("PCB-GEO-006", None),
+    "hole_to_hole": ("PCB-DFM-001", None),
+    "holes_co_located": ("PCB-DFM-001", None),
+    "drill_out_of_range": ("PCB-DFM-001", None),
+    "microvia_drill_out_of_range": ("PCB-DFM-001", None),
+    "via_diameter": ("PCB-DFM-001", None),
+    "solder_mask_bridge": ("PCB-DFM-003", None),
+    "isolated_copper": ("PCB-GND-003", None),
 }
 WIDTH_METRICS = {"min": "trace_width", "max": "trace_width_max"}
 
@@ -89,8 +100,13 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
             rule_id, metric = VIOLATION_RULES.get(violation["type"], (None, None))
             if violation["type"] == "track_width":
                 rule_id, metric = "PCB-DFM-001", WIDTH_METRICS.get(width_bounds.get(locator))
+            if metric == "copper_to_edge":
+                layers = {layer for item in affected for layer in item.get("board_item", {}).get("layers", ())}
+                layers.update(item["project_context"].get("layer") for item in affected)
+                if "Edge.Cuts" not in layers or "Margin" in layers:
+                    metric = None
             if rule_id not in known_rules or section != "violations":
-                rule_id = None
+                rule_id = metric = None
             object_ids = {item["project_context"].get("object_id") for item in affected}
             shared_object = next(iter(object_ids)) if len(object_ids) == 1 else None
             objects_resolved = board is None or all(item["board_match"] == "matched" for item in affected)
@@ -104,6 +120,7 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
                 "excluded": excluded,
                 "status": "REVIEW_REQUIRED",
                 "candidate_rule_id": rule_id,
+                "candidate_metric": metric,
                 "candidate_criterion_ids": candidates,
                 "evidence_ref": {"artifact": artifact, "locator": locator},
             })
@@ -111,6 +128,8 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
     counts = Counter(
         "excluded" if item["excluded"] else item["severity"] for item in findings
     )
+    candidates_by_rule = Counter(item["candidate_rule_id"] for item in findings
+                                 if item["candidate_rule_id"] and not item["excluded"])
     result = {
         "report_type": "kicad_drc_import",
         "profile_id": profile["profile_id"],
@@ -126,6 +145,7 @@ def import_drc(profile, report, context, artifact, known_rules, board=None):
         "ignored_checks": report.get("ignored_checks"),
         "section_counts": {section: len(report[section]) for section in SECTIONS},
         "counts": {key: counts[key] for key in ("error", "warning", "excluded")},
+        "active_candidates_by_rule": dict(sorted(candidates_by_rule.items())),
         "findings": findings,
     }
     if board is not None:

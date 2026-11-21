@@ -226,6 +226,7 @@
               "clearance",
               "creepage",
               "copper_gap",
+              "copper_to_edge",
               "trace_width",
               "trace_width_max",
               "controlled_impedance",
