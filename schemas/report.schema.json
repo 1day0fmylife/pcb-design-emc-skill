@@ -14,6 +14,20 @@
       "minItems": 1,
       "items": {"$ref": "#/$defs/id"}
     },
+    "evidence_artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/id"},
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"$ref": "#/$defs/text"},
+          "sha256": {"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
     "findings": {
       "type": "array",
       "items": {"$ref": "#/$defs/finding"}

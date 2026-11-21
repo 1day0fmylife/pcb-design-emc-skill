@@ -29,6 +29,7 @@ if __package__:
     from .mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
     from .mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from .pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
+    from .pcb_evidence import verify_evidence_artifacts
 else:
     from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from kicad_board import read_board_inventory
@@ -40,6 +41,7 @@ else:
     from mechanical_holes import RULE_IDS as MECHANICAL_RULE_IDS
     from mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
+    from pcb_evidence import verify_evidence_artifacts
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,12 +84,17 @@ class UniqueSafeLoader(yaml.SafeLoader):
         return unique_mapping(self.construct_pairs(node, deep=deep))
 
 
-def load_document(path, *, content=None):
+def reject_json_constant(value):
+    raise ValueError(f"Недопустимое значение JSON {value}")
+
+
+def load_document(path, *, content=None, strict_json=False):
     try:
         if content is None:
             content = path.read_text(encoding="utf-8")
         if path.suffix.lower() == ".json":
-            return json.loads(content, object_pairs_hook=unique_mapping)
+            return json.loads(content, object_pairs_hook=unique_mapping,
+                              parse_constant=reject_json_constant if strict_json else None)
         return yaml.load(content, Loader=UniqueSafeLoader)
     except (OSError, ValueError, yaml.YAMLError, RecursionError) as error:
         raise ValueError(f"{path} — {error}") from error
@@ -418,11 +425,16 @@ class ProfileReview:
             "information_security": security_scope,
         }
 
-    def validate_report(self, profile, path):
+    def validate_report(self, profile, path, artifact_root=None):
         if path.suffix.lower() != ".json":
             raise ValueError("Инженерный отчёт должен быть файлом .json")
         report = self.load_validated(path, "report")
         validate_report_findings(profile, report, self.analyze(profile))
+        if "evidence_artifacts" in report:
+            return verify_evidence_artifacts(report, artifact_root or path.parent, load_document)
+        if artifact_root is not None:
+            raise ValueError("Для --artifact-root в отчёте требуется evidence_artifacts")
+        return None
 
     def import_drc(self, profile, report_path, context_path, board_path=None):
         if report_path.suffix.lower() != ".json":
@@ -685,6 +697,7 @@ def arguments():
     result = commands.add_parser("validate-report", help="Сверить инженерный отчёт с профилем и критериями")
     result.add_argument("profile", help="ID либо путь к профилю")
     result.add_argument("report", type=Path, help="Инженерный отчёт JSON")
+    result.add_argument("--artifact-root", type=Path, help="Каталог артефактов, по умолчанию каталог отчёта")
     drc = commands.add_parser("import-drc", help="Импортировать готовый JSON-отчёт KiCad DRC")
     drc.add_argument("profile", help="ID либо путь к профилю")
     drc.add_argument("report", type=Path, help="Отчёт KiCad DRC JSON")
@@ -766,8 +779,11 @@ def main():
             print(f"Встроенные профили — {count}. Дополнительные профили — {len(args.profiles)}.")
         elif args.command == "validate-report":
             profile = review.profile(review.profile_path(args.profile))
-            review.validate_report(profile, args.report)
+            verified = review.validate_report(profile, args.report, args.artifact_root)
             print("Отчёт согласован со схемой, профилем и заявленными результатами.")
+            if verified is not None:
+                print(f"Проверено артефактов по SHA-256 — {verified['artifacts']}. "
+                      f"Проверено указателей JSON — {verified['references']}.")
         elif args.command == "import-drc":
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для импорта DRC укажите выходной файл .json")
