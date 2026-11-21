@@ -1,6 +1,7 @@
 """Критерии по объектам платы и проверка инженерного отчёта."""
 
 import math
+from datetime import date
 from decimal import Decimal
 
 
@@ -138,27 +139,57 @@ def result_satisfies(criterion, finding, field):
     return observed >= limit
 
 
-def validate_report_findings(profile, report, plan):
+def parse_calendar_date(value):
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as error:
+        raise ValueError(f"{value!r} — ожидается календарная дата YYYY-MM-DD") from error
+    if parsed.isoformat() != value:
+        raise ValueError(f"{value!r} — ожидается календарная дата YYYY-MM-DD")
+    return parsed
+
+
+def validate_waiver(waiver, field, rule, design_revision, as_of):
+    if rule["domain"] == "electrical_safety":
+        raise ValueError(f"{field} — исключения по электробезопасности запрещены")
+    if waiver["design_revision"] != design_revision:
+        raise ValueError(f"{field} — ревизия исключения расходится с ревизией отчёта")
+    try:
+        expires_on = parse_calendar_date(waiver["expires_on"])
+    except ValueError as error:
+        raise ValueError(f"{field}.expires_on — {error}") from error
+    if expires_on < as_of:
+        raise ValueError(f"{field} — срок исключения истёк {expires_on}, дата проверки {as_of}")
+
+
+def validate_report_findings(profile, report, plan, *, as_of=None):
     if report["profile_id"] != profile["profile_id"]:
         raise ValueError("ID профиля в отчёте не совпадает с переданным профилем")
     if report["design_revision"] != profile["design_revision"]:
         raise ValueError("Ревизия платы в отчёте не совпадает с профилем")
 
     criteria = {row["criterion_id"]: row for row in plan["criterion_plan"] if row["criterion_id"] is not None}
-    applicability = {row["rule_id"]: row["applicability"] for row in plan["rules"]}
+    rules = {row["rule_id"]: row for row in plan["rules"]}
     scope = set(report.get("scope_criteria", ()))
     if scope - criteria.keys():
         raise ValueError(f"Неизвестные критерии в scope_criteria — {', '.join(sorted(scope - criteria.keys()))}")
     confirmed = set()
+    waiver_ids = set()
+    as_of = as_of or date.today()
     for index, finding in enumerate(report["findings"]):
         field = f"findings[{index}]"
         rule_id = finding["rule_id"]
         object_id = finding.get("object_id")
         criterion_id = finding.get("criterion_id")
-        if rule_id not in applicability:
+        rule = rules.get(rule_id)
+        if rule is None:
             raise ValueError(f"{field} — неизвестное правило {rule_id}")
         if object_id is not None and object_id not in profile["review_objects"]:
             raise ValueError(f"{field} — неизвестный объект {object_id}")
+        status = finding["status"]
+        waiver = finding.get("waiver")
+        if waiver is not None and (status != "FAIL" or criterion_id is None):
+            raise ValueError(f"{field}.waiver — требуется подтверждённый FAIL с критерием")
         if criterion_id is None:
             continue
         criterion = criteria.get(criterion_id)
@@ -168,15 +199,22 @@ def validate_report_findings(profile, report, plan):
             raise ValueError(f"{field} — правило или объект расходится с критерием {criterion_id}")
         if scope and criterion_id not in scope:
             raise ValueError(f"{field} — критерий {criterion_id} находится за пределами scope_criteria")
-        if finding["status"] not in {"PASS", "FAIL"}:
+        if status not in {"PASS", "FAIL"}:
             continue
-        if applicability[rule_id] != "selected" or criterion["missing_data"]:
+        if rule["applicability"] != "selected" or criterion["missing_data"]:
             raise ValueError(f"{field} — применимость или исходные данные критерия требуют уточнения")
 
         satisfies = result_satisfies(criterion, finding, field)
-        if satisfies != (finding["status"] == "PASS"):
+        if satisfies != (status == "PASS"):
             raise ValueError(f"{field} — статус не соответствует результату и критерию {criterion_id}")
+        if waiver is not None:
+            waiver_field = f"{field}.waiver"
+            validate_waiver(waiver, waiver_field, rule, report["design_revision"], as_of)
+            if waiver["id"] in waiver_ids:
+                raise ValueError(f"{waiver_field} — повтор ID исключения {waiver['id']}")
+            waiver_ids.add(waiver["id"])
         confirmed.add(criterion_id)
 
     if report["overall_status"] == "PASS" and scope != confirmed:
         raise ValueError("Для общего PASS требуется результат PASS по всем критериям scope_criteria")
+    return len(waiver_ids)
