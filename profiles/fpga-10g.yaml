@@ -1,0 +1,22 @@
+# Draft profile; null means TBD, not zero and not approval.
+profile_id: fpga-10g
+description: "FPGA/10G-SFP+ high-speed board"
+inherits: generic-4layer
+approved: false
+feature_tags:
+  - fpga
+  - serdes
+  - sfp-plus
+  - signal-integrity
+constraints:
+  min_trace_width_mm: null
+  min_copper_gap_mm: null
+  copper_to_edge_mm: null
+  min_drill_mm: null
+  controlled_impedance_ohm: null
+  working_voltage_v: null
+  max_current_a: null
+notes:
+  - "No universal 100-ohm or length-matching rule; use selected transceiver and PCB stackup"
+  - "Evaluate insertion/return loss, skew, via stubs and package delays"
+  - "Document eye/BER validation"

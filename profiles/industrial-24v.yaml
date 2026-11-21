@@ -1,0 +1,20 @@
+# Draft profile; null means TBD, not zero and not approval.
+profile_id: industrial-24v
+description: "Промышленное питание номинально 24 V, не нормативный safety profile"
+inherits: generic-4layer
+approved: false
+feature_tags:
+  - industrial
+  - dc-dc
+  - surge-eft-esd
+constraints:
+  min_trace_width_mm: null
+  min_copper_gap_mm: null
+  copper_to_edge_mm: null
+  min_drill_mm: null
+  controlled_impedance_ohm: null
+  working_voltage_v: null
+  max_current_a: null
+notes:
+  - "Specify actual min/max input voltage, load and conducted immunity targets"
+  - "Consider brownout, protection, EMC cable effects and thermal derating"

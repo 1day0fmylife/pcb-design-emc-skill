@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PCB Rule Catalog",
+  "type": "object",
+  "required": [
+    "version",
+    "status",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "severity",
+          "verification",
+          "title",
+          "reference",
+          "criteria_source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^PCB-[A-Z]+-[0-9]{3}$"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "BLOCKER",
+              "ERROR",
+              "WARNING",
+              "INFO"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "geometry",
+              "calculation",
+              "review",
+              "test"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 12
+          },
+          "reference": {
+            "type": "string"
+          },
+          "criteria_source": {
+            "enum": [
+              "project_or_datasheet"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

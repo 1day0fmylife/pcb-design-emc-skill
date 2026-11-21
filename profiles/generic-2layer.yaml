@@ -1,0 +1,19 @@
+# Draft profile; null means TBD, not zero and not approval.
+profile_id: generic-2layer
+description: "Низковольтная двухслойная PCB, только стартовый шаблон"
+inherits: null
+approved: false
+feature_tags:
+  - two-layer
+  - low-voltage
+constraints:
+  min_trace_width_mm: null
+  min_copper_gap_mm: null
+  copper_to_edge_mm: null
+  min_drill_mm: null
+  controlled_impedance_ohm: null
+  working_voltage_v: null
+  max_current_a: null
+notes:
+  - "PCB fabrication minima and safety isolation must be explicitly approved"
+  - "GND return routes and high di/dt loops need manual review"

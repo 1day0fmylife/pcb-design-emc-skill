@@ -1,0 +1,20 @@
+# Draft profile; null means TBD, not zero and not approval.
+profile_id: isolated-power
+description: "Плата с гальванически изолированными доменами"
+inherits: generic-4layer
+approved: false
+feature_tags:
+  - isolated-power
+  - safety
+  - creepage-clearance
+constraints:
+  min_trace_width_mm: null
+  min_copper_gap_mm: null
+  copper_to_edge_mm: null
+  min_drill_mm: null
+  controlled_impedance_ohm: null
+  working_voltage_v: null
+  max_current_a: null
+notes:
+  - "No nominal isolating gaps prefilled; require applicable product safety review"
+  - "Check via, slots, fastening, shield, test points and all layers across isolation barrier"

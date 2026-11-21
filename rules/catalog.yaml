@@ -1,0 +1,1264 @@
+# Machine-readable rule registry v0.1.0; no rule proves certification or EMC compliance.
+version: "0.1.0"
+status: "draft-for-engineering-review"
+rules:
+  - id: PCB-GEO-001
+    category: geometry
+    severity: ERROR
+    verification: geometry
+    title: "Соблюдать проектный минимальный зазор между проводниками разных сетей."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-002
+    category: geometry
+    severity: BLOCKER
+    verification: review
+    title: "Рассчитывать clearance и creepage отдельно для изоляционных барьеров и опасных напряжений."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-003
+    category: geometry
+    severity: WARNING
+    verification: geometry
+    title: "Проверять медь до контура платы с учётом фрезеровки и допустимых производственных отклонений."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-004
+    category: geometry
+    severity: WARNING
+    verification: geometry
+    title: "Исключать узкие медные клинья и острые выступы."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-005
+    category: geometry
+    severity: ERROR
+    verification: geometry
+    title: "Проверять annular ring с учётом допуска смещения сверла."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-006
+    category: geometry
+    severity: WARNING
+    verification: geometry
+    title: "Контролировать зазор меди до NPTH, PTH, пазов и крепежа согласно назначению отверстия."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-007
+    category: geometry
+    severity: ERROR
+    verification: review
+    title: "Не считать паяльную маску самостоятельным средством гарантированной электрической изоляции."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-008
+    category: geometry
+    severity: WARNING
+    verification: review
+    title: "Учитывать влажность, загрязнение, высоту и материал изоляции при оценке creepage."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-009
+    category: geometry
+    severity: WARNING
+    verification: geometry
+    title: "Проверять расстояния между полигонами после обновления зон."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GEO-010
+    category: geometry
+    severity: ERROR
+    verification: review
+    title: "Для изоляционных прорезей проверять геометрию и ограничения выбранного стандарта."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-001
+    category: routing
+    severity: INFO
+    verification: geometry
+    title: "Предпочитать прямые участки, 45-градусные либо плавные повороты при отсутствии специальных требований."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-002
+    category: routing
+    severity: WARNING
+    verification: geometry
+    title: "Избегать длинных параллельных участков шумных и чувствительных цепей без оценки crosstalk."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-003
+    category: routing
+    severity: ERROR
+    verification: review
+    title: "Не пересекать непредусмотренные разрывы опорной плоскости критическими быстрыми сигналами."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-004
+    category: routing
+    severity: WARNING
+    verification: geometry
+    title: "Минимизировать избыточные переходные отверстия в критических сигнальных цепях."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-005
+    category: routing
+    severity: WARNING
+    verification: review
+    title: "Проверять длину stubs и ответвлений по бюджету конкретного интерфейса."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-006
+    category: routing
+    severity: WARNING
+    verification: geometry
+    title: "Контролировать резкие сужения силовых проводников и локальные тепловые узкие места."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-007
+    category: routing
+    severity: WARNING
+    verification: review
+    title: "Сопоставлять length matching с допустимым skew, а не требовать произвольного равенства длины."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-008
+    category: routing
+    severity: WARNING
+    verification: review
+    title: "Разделять сигналы по характеру фронтов и чувствительности, а не только по частоте."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-009
+    category: routing
+    severity: WARNING
+    verification: review
+    title: "Проверять переходы между слоями вместе с путём возвратного тока."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ROUTE-010
+    category: routing
+    severity: INFO
+    verification: review
+    title: "Не считать одиночный поворот 90 градусов автоматической неисправностью обычной PCB."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-001
+    category: grounding
+    severity: ERROR
+    verification: review
+    title: "Обеспечивать предусмотренный непрерывный путь возврата тока для критических сигналов."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-002
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Не разрезать AGND и DGND без анализа схемы токов и требований компонента."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-003
+    category: grounding
+    severity: WARNING
+    verification: geometry
+    title: "Устранять изолированные медные острова без функциональной связи."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-004
+    category: grounding
+    severity: ERROR
+    verification: review
+    title: "Не допускать общего чувствительного участка возврата для больших импульсных токов."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-005
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Проверять переходы опорной плоскости возле сигнальных vias."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-006
+    category: grounding
+    severity: ERROR
+    verification: review
+    title: "Не замыкать изоляционный барьер stitching vias, крепежом или экраном."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-007
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Различать signal ground, power ground, chassis ground и защитный PE."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-008
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Избегать узких GND-перешейков с чрезмерным общим импедансом."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-009
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Проверять целесообразность via stitching по реальным токовым путям."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-GND-010
+    category: grounding
+    severity: WARNING
+    verification: review
+    title: "Не прокладывать обратный ток чувствительного блока по участку силовой коммутации."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-001
+    category: power
+    severity: ERROR
+    verification: calculation
+    title: "Проверять ток, толщину меди и нагрев дорожек по допустимой температуре."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-002
+    category: power
+    severity: ERROR
+    verification: calculation
+    title: "Проверять DC drop дорожек, vias и разъёмов при максимальных режимах."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-003
+    category: power
+    severity: ERROR
+    verification: calculation
+    title: "Учитывать inrush, пиковые токи и аварийные режимы в power budget."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-004
+    category: power
+    severity: WARNING
+    verification: review
+    title: "Минимизировать индуктивность полного контура развязки pin capacitor return."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-005
+    category: power
+    severity: ERROR
+    verification: review
+    title: "Уменьшать высокочастотные токовые петли DC/DC."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-006
+    category: power
+    severity: WARNING
+    verification: review
+    title: "Ограничивать площадь high-dv-dt switching node согласно design guide."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-007
+    category: power
+    severity: ERROR
+    verification: review
+    title: "Не проводить импульсные силовые токи через цепи обратной связи или измерения."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-008
+    category: power
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать derating и DC bias керамических конденсаторов."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-009
+    category: power
+    severity: WARNING
+    verification: calculation
+    title: "Проверять устойчивость регулятора и возможные антирезонансы PDN."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-010
+    category: power
+    severity: ERROR
+    verification: review
+    title: "Проверять sequencing, brownout, back-power и поведение при пропадании питания."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-011
+    category: power
+    severity: WARNING
+    verification: calculation
+    title: "Оценивать токовую нагрузку и нагрев переходных отверстий."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-PWR-012
+    category: power
+    severity: WARNING
+    verification: review
+    title: "Проверять локальную фильтрацию шумных нагрузок без разрушения устойчивости питания."
+    reference: references/layout-power.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-001
+    category: capacitors
+    severity: WARNING
+    verification: geometry
+    title: "Размещать развязку вблизи питаемых выводов с минимальной индуктивностью полного контура."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-002
+    category: capacitors
+    severity: ERROR
+    verification: review
+    title: "Проверять полярность полярных конденсаторов и обозначение на PCB."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-003
+    category: capacitors
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать DC bias, рабочую температуру и эффективную ёмкость MLCC."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-004
+    category: capacitors
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать ESR, ESL и пульсационный ток."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-005
+    category: capacitors
+    severity: WARNING
+    verification: review
+    title: "Не добавлять ёмкости разных номиналов без анализа частотной характеристики PDN."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-006
+    category: capacitors
+    severity: WARNING
+    verification: review
+    title: "Защищать MLCC от механического изгиба вблизи крепёжных отверстий и мест разлома панели."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-007
+    category: capacitors
+    severity: WARNING
+    verification: review
+    title: "Для преобразователей следовать требованиям к входным и выходным конденсаторам."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CAP-008
+    category: capacitors
+    severity: ERROR
+    verification: calculation
+    title: "Проверять допустимое напряжение конденсаторов в worst-case режиме."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-001
+    category: resistors
+    severity: ERROR
+    verification: calculation
+    title: "Проверять мощность и температурное снижение допустимой нагрузки резисторов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-002
+    category: resistors
+    severity: ERROR
+    verification: calculation
+    title: "Проверять максимально допустимое напряжение на резисторе."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-003
+    category: resistors
+    severity: WARNING
+    verification: review
+    title: "Размещать терминаторы у заданного конца линии согласно схеме согласования."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-004
+    category: resistors
+    severity: WARNING
+    verification: review
+    title: "Для шунтов точного измерения предусматривать Kelvin sense."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-005
+    category: resistors
+    severity: WARNING
+    verification: review
+    title: "Не размещать горячие резисторы непосредственно рядом с температурно чувствительными цепями."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-006
+    category: resistors
+    severity: WARNING
+    verification: review
+    title: "Оценивать токи утечки и guard rings для высокоомных цепей."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-007
+    category: resistors
+    severity: WARNING
+    verification: calculation
+    title: "Проверять номиналы pull-up по ёмкости шины и временам фронтов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RES-008
+    category: resistors
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать температурный коэффициент прецизионных делителей."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-001
+    category: diodes
+    severity: WARNING
+    verification: review
+    title: "Размещать TVS у соответствующей границы интерфейса с коротким контролируемым путём тока."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-002
+    category: diodes
+    severity: ERROR
+    verification: calculation
+    title: "Проверять clamping voltage TVS относительно абсолютных пределов защищаемого элемента."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-003
+    category: diodes
+    severity: WARNING
+    verification: review
+    title: "Не проводить ESD импульсный ток через чувствительную GND область."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-004
+    category: diodes
+    severity: ERROR
+    verification: review
+    title: "Проверять полярность диодов в схеме, footprint и маркировке."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-005
+    category: diodes
+    severity: ERROR
+    verification: calculation
+    title: "Проверять импульсную энергию, ток и тепловой режим защиты."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-006
+    category: diodes
+    severity: WARNING
+    verification: calculation
+    title: "Для быстрого переключения учитывать reverse recovery и паразитную ёмкость."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-007
+    category: diodes
+    severity: WARNING
+    verification: review
+    title: "Выбирать защиту индуктивной нагрузки по типу и скорости отпускания."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DIO-008
+    category: diodes
+    severity: ERROR
+    verification: review
+    title: "Не нарушать гальваническую изоляцию цепью TVS или общего возврата."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-001
+    category: clocks
+    severity: WARNING
+    verification: geometry
+    title: "Размещать кварц вблизи выводов генератора и минимизировать петлю."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-002
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Не размещать быстрые и шумные дорожки рядом с высокоомными узлами кварца."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-003
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Не прокладывать SW DC/DC непосредственно под чувствительным генератором без анализа."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-004
+    category: clocks
+    severity: ERROR
+    verification: calculation
+    title: "Проверять нагрузочную ёмкость кварца с учётом паразитных элементов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-005
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Проверять jitter budget и фильтрацию питания PLL."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-006
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Не добавлять GND кольца и медь под кварцем без reference design."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-007
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Проверять termination, fanout и stubs тактовой сети."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-CLK-008
+    category: clocks
+    severity: WARNING
+    verification: review
+    title: "Оценивать тестовый доступ без нарушения генерации и ёмкостной нагрузки."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-001
+    category: inductors
+    severity: WARNING
+    verification: review
+    title: "Разделять мощные дроссели и чувствительные аналоговые цепи по полю рассеяния."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-002
+    category: inductors
+    severity: WARNING
+    verification: review
+    title: "Проверять взаимную магнитную связь соседних индуктивностей и ориентацию."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-003
+    category: inductors
+    severity: ERROR
+    verification: calculation
+    title: "Проверять ток насыщения при максимальном и переходном токе."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-004
+    category: inductors
+    severity: ERROR
+    verification: calculation
+    title: "Проверять потери и температурный режим индуктивности."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-005
+    category: inductors
+    severity: WARNING
+    verification: review
+    title: "Не прокладывать чувствительные сигналы под силовым дросселем без обоснования."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-006
+    category: inductors
+    severity: WARNING
+    verification: review
+    title: "Контролировать геометрию SW узла рядом с дросселем."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-007
+    category: inductors
+    severity: WARNING
+    verification: review
+    title: "Для common-mode choke проверить обмотки, направление и согласование импеданса."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IND-008
+    category: inductors
+    severity: INFO
+    verification: review
+    title: "Учитывать акустический шум и вибрацию магнитных компонентов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-001
+    category: relays
+    severity: ERROR
+    verification: review
+    title: "Предусматривать управляемый путь рассеяния энергии катушки реле при отключении."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-002
+    category: relays
+    severity: ERROR
+    verification: review
+    title: "Различать AC и DC катушки и полярность защитной цепи."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-003
+    category: relays
+    severity: WARNING
+    verification: calculation
+    title: "Выбирать flyback diode, diode zener или TVS с учётом скорости отпускания и ресурса контактов."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-004
+    category: relays
+    severity: WARNING
+    verification: geometry
+    title: "Минимизировать паразитную индуктивность контура подавления у катушки."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-005
+    category: relays
+    severity: ERROR
+    verification: review
+    title: "Отделять токовые пути катушки и контактов от чувствительного питания и GND."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-006
+    category: relays
+    severity: BLOCKER
+    verification: review
+    title: "Проверять изоляцию между контактом опасного напряжения и низковольтным управлением."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-007
+    category: relays
+    severity: ERROR
+    verification: calculation
+    title: "Проверять коммутационную способность контактов для характера и пускового тока нагрузки."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-008
+    category: relays
+    severity: WARNING
+    verification: review
+    title: "Оценивать snubber, MOV или другое подавление помех индуктивной контактной нагрузки."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-009
+    category: relays
+    severity: ERROR
+    verification: calculation
+    title: "Оценивать ток утечки и влияние snubber на отключённую нагрузку."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-010
+    category: relays
+    severity: WARNING
+    verification: review
+    title: "Не размещать высокоомные и reset линии рядом с коммутируемой нагрузкой без анализа связи."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-011
+    category: relays
+    severity: WARNING
+    verification: review
+    title: "Обеспечивать локальную развязку и сброс помех драйвера."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-012
+    category: relays
+    severity: WARNING
+    verification: test
+    title: "Проверять контактный дребезг и переходные процессы на системе при switching."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-013
+    category: relays
+    severity: BLOCKER
+    verification: review
+    title: "Не объединять изолированные домены через землю драйвера или экраны."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-014
+    category: relays
+    severity: WARNING
+    verification: test
+    title: "Диагностировать brownout отдельно от EMI при переключении реле."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-015
+    category: relays
+    severity: ERROR
+    verification: review
+    title: "Для сетевых snubber узлов применять компоненты требуемого класса безопасности и инженерное согласование."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-RELAY-016
+    category: relays
+    severity: WARNING
+    verification: review
+    title: "Проверять влияние длины кабеля нагрузки на conducted и radiated emission."
+    reference: references/relay-switching-emc.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-001
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Минимизировать токовые петли с высоким di dt."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-002
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Минимизировать ёмкостную связь высоких dv dt узлов со внешними кабелями."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-003
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Сохранять контролируемые пути ВЧ возвратных токов."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-004
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Не создавать нежелательные обходы EMI фильтров через соседнюю медь или землю."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-005
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Проверять chassis bonding и подключение экранов кабелей."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-006
+    category: emission
+    severity: WARNING
+    verification: calculation
+    title: "Проверять фильтры на антирезонанс, насыщение и потери."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-007
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "При необходимости использовать демпфирование быстрых цифровых фронтов."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-008
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Проверять common mode в несимметричных дифференциальных переходах."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-009
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Оценивать расположение высокочастотных трасс относительно края платы."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-010
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Не считать via fence универсальным способом достижения EMC."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-011
+    category: emission
+    severity: WARNING
+    verification: test
+    title: "Оценивать помехи через конфигурации кабелей и нагрузок."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-EMI-012
+    category: emission
+    severity: WARNING
+    verification: review
+    title: "Учитывать гармоники и скорость фронтов вместо одной тактовой частоты."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-001
+    category: immunity
+    severity: ERROR
+    verification: review
+    title: "Проверять ESD защиту внешних интерфейсов согласно целевой испытательной программе."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-002
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Рассматривать EFT и surge для применимых внешних портов."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-003
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Не направлять импульсный ток защиты через чувствительные цепи."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-004
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Размещать защиту на корректной стороне изоляционного и интерфейсного барьера."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-005
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Проверять электрическую симметрию защит дифференциальных линий."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-006
+    category: immunity
+    severity: WARNING
+    verification: calculation
+    title: "Проверять ёмкостную нагрузку TVS на высокоскоростной интерфейс."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-007
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Для внешнего GPIO анализировать фильтрацию и безопасные логические состояния."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-008
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Проверять устойчивость reset, enable и питания к коротким переходным процессам."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-009
+    category: immunity
+    severity: ERROR
+    verification: review
+    title: "Проверять сохранение границ изоляции при ESD и surge защите."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-010
+    category: immunity
+    severity: WARNING
+    verification: test
+    title: "Устанавливать функциональный критерий поведения при помехе до испытания."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-011
+    category: immunity
+    severity: WARNING
+    verification: review
+    title: "Оценивать корпус и кабели как часть EMC системы."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-IMM-012
+    category: immunity
+    severity: WARNING
+    verification: test
+    title: "Повторять испытания после правок экрана, фильтрации и топологии."
+    reference: references/interference-verification.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-001
+    category: mechanical
+    severity: ERROR
+    verification: geometry
+    title: "Проверять координаты монтажных отверстий по корпусу и допускам."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-002
+    category: mechanical
+    severity: ERROR
+    verification: geometry
+    title: "Обеспечивать keepout для реальной головки винта шайбы и стойки."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-003
+    category: mechanical
+    severity: ERROR
+    verification: review
+    title: "Исключать случайный контакт металлического крепежа с цепями."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-004
+    category: mechanical
+    severity: WARNING
+    verification: review
+    title: "Различать PTH и NPTH по назначению отверстия."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-005
+    category: mechanical
+    severity: WARNING
+    verification: review
+    title: "Проверять корректность намеренного chassis контакта через крепёж."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-006
+    category: mechanical
+    severity: WARNING
+    verification: geometry
+    title: "Избегать хрупких MLCC в области сильного изгиба платы."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-007
+    category: mechanical
+    severity: WARNING
+    verification: review
+    title: "Подпирать тяжёлые разъёмы и компоненты по условиям вибраций."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-008
+    category: mechanical
+    severity: ERROR
+    verification: geometry
+    title: "Проверять механические коллизии в 3D модели и высотные ограничения."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-009
+    category: mechanical
+    severity: WARNING
+    verification: review
+    title: "Обеспечивать доступ для инструмента к монтажным винтам."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-MECH-010
+    category: mechanical
+    severity: WARNING
+    verification: review
+    title: "Оценивать напряжение платы при затяжке и температурном расширении."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-001
+    category: highspeed
+    severity: ERROR
+    verification: calculation
+    title: "Назначать controlled impedance по согласованному stackup и режиму интерфейса."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-002
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Проверять insertion loss return loss и crosstalk полного канала."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-003
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Оценивать via stubs и backdrill по бюджету канала."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-004
+    category: highspeed
+    severity: WARNING
+    verification: calculation
+    title: "Проверять внутрипарный skew и interlane budget по спецификации."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-005
+    category: highspeed
+    severity: ERROR
+    verification: review
+    title: "Сохранять непрерывный путь возврата при переходах слоёв."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-006
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Соблюдать topology и AC coupling placement по reference design."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-007
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Проверять влияние защиты и фильтров на SI и mode conversion."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-008
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Учитывать package delay при сверке длин DDR и SERDES."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-009
+    category: highspeed
+    severity: WARNING
+    verification: test
+    title: "Проводить eye или BER испытания при требуемом уровне критичности."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-HS-010
+    category: highspeed
+    severity: WARNING
+    verification: review
+    title: "Не назначать 100 Ohm всем дифференциальным линиям по умолчанию."
+    reference: references/interfaces.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-001
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Размещать входные фильтры около чувствительного входа."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-002
+    category: analog
+    severity: ERROR
+    verification: review
+    title: "Не проводить импульсный силовой возврат через analog reference."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-003
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Использовать Kelvin sensing для точных шунтов и делителей по необходимости."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-004
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Учитывать паразитную ёмкость и утечки на высокоомных узлах."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-005
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Проверять чистоту и локальную развязку напряжения опоры АЦП."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-006
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Учитывать тепловые градиенты прецизионных компонентов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-007
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Отделять чувствительный вход от катушек реле и DC DC узлов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-ANA-008
+    category: analog
+    severity: WARNING
+    verification: review
+    title: "Guard ring и shielding применять по проверенному механизму помех."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-001
+    category: thermal
+    severity: ERROR
+    verification: calculation
+    title: "Проверять температурный режим по допустимой температуре перехода компонентов."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-002
+    category: thermal
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать тепловой путь через PCB и реальный обдув."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-003
+    category: thermal
+    severity: WARNING
+    verification: review
+    title: "Проверять thermal vias и solder voiding по рекомендациям корпуса."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-004
+    category: thermal
+    severity: WARNING
+    verification: review
+    title: "Не перегревать температурно чувствительные соседние компоненты."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-005
+    category: thermal
+    severity: WARNING
+    verification: review
+    title: "Контролировать несимметричную тепловую связь площадок мелких SMD."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-THM-006
+    category: thermal
+    severity: WARNING
+    verification: calculation
+    title: "Учитывать нагрев и derating при длительных максимальных нагрузках."
+    reference: references/component-placement.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-001
+    category: manufacturing
+    severity: ERROR
+    verification: geometry
+    title: "Проверять допустимые track space hole и solder mask параметры изготовителя."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-002
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Согласовывать stackup и контролируемые импедансы с фабрикой."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-003
+    category: manufacturing
+    severity: ERROR
+    verification: geometry
+    title: "Проверять solder mask dams для мелкого шага."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-004
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Не применять via in pad без разрешённой технологии заполнения и герметизации."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-005
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Проверять pin 1 полярность и silk маркировку."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-006
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Проверять fiducials если это требует сборочная линия."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-007
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Проверять paste aperture для крупных тепловых площадок."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-008
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Проверять доступность AOI ICT и rework."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-009
+    category: manufacturing
+    severity: ERROR
+    verification: review
+    title: "Согласовывать BOM pick and place Gerber и drill по одной ревизии."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-DFM-010
+    category: manufacturing
+    severity: WARNING
+    verification: review
+    title: "Проверять DNP и варианты комплектации отдельно."
+    reference: references/geometry-mechanical-dfm.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-001
+    category: safety
+    severity: BLOCKER
+    verification: review
+    title: "Проверять изоляционные барьеры относительно применимого product safety стандарта."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-002
+    category: safety
+    severity: ERROR
+    verification: review
+    title: "Проверять защиту от обратной полярности и перенапряжения по требованиям изделия."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-003
+    category: safety
+    severity: ERROR
+    verification: calculation
+    title: "Проверять защиту от короткого замыкания по энергии источника."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-004
+    category: safety
+    severity: WARNING
+    verification: review
+    title: "Проверять единую отказобезопасную политику для критических выходов."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-005
+    category: safety
+    severity: WARNING
+    verification: review
+    title: "Учитывать влажность загрязнение и коррозию в эксплуатации."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-006
+    category: safety
+    severity: WARNING
+    verification: review
+    title: "Оценивать деградацию реле MOV и электролитических конденсаторов."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-007
+    category: safety
+    severity: WARNING
+    verification: review
+    title: "Проверять материал PCB по термическим и пожарным требованиям изделия."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-SAFE-008
+    category: safety
+    severity: BLOCKER
+    verification: review
+    title: "Не заявлять нормативное соответствие без утверждённой программы проверки и sign off."
+    reference: references/standards-applicability.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-001
+    category: testability
+    severity: WARNING
+    verification: review
+    title: "Обеспечивать доступные тестовые точки основных power rails и GND."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-002
+    category: testability
+    severity: WARNING
+    verification: review
+    title: "Предусматривать интерфейс восстановления и прошивки если требуется."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-003
+    category: testability
+    severity: WARNING
+    verification: review
+    title: "Не ухудшать высокоскоростные каналы test stubs."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-004
+    category: testability
+    severity: WARNING
+    verification: review
+    title: "Документировать процедуры электрической и функциональной проверки."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-005
+    category: testability
+    severity: WARNING
+    verification: review
+    title: "Проверять совместимость test fixture и assembly."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet
+  - id: PCB-TEST-006
+    category: testability
+    severity: ERROR
+    verification: review
+    title: "Отделять непроверенное от успешно прошедшего испытания."
+    reference: references/engineering-validation.md
+    criteria_source: project_or_datasheet

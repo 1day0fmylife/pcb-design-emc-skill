@@ -56,7 +56,7 @@ mkdir -p "$project_dir/.agents/skills"
 # mkdir без -p остановит установку, если такая версия уже существует.
 if mkdir "$skill_target"; then
   cp SKILL.md "$skill_target/"
-  cp -R references "$skill_target/"
+  cp -R references rules profiles schemas "$skill_target/"
 fi
 ```
 
@@ -68,11 +68,11 @@ skill_target="$project_dir/.claude/skills/pcb-design-review"
 mkdir -p "$project_dir/.claude/skills"
 if mkdir "$skill_target"; then
   cp SKILL.md "$skill_target/"
-  cp -R references "$skill_target/"
+  cp -R references rules profiles schemas "$skill_target/"
 fi
 ```
 
-При использовании обоих агентов установите обе копии из одной ревизии. При обновлении сравните установленную версию с исходником и сохраните локальные правки; не запускайте повторное копирование поверх существующей версии вслепую. Полнота установки: `SKILL.md` и все пять файлов `references/`.
+При использовании обоих агентов установите обе копии из одной ревизии. При обновлении сравните установленную версию с исходником и сохраните локальные правки; не запускайте повторное копирование поверх существующей версии вслепую. Полнота установки: `SKILL.md`, все файлы `references/`, каталог `rules/`, профили `profiles/` и схемы `schemas/`.
 
 Откройте новую сессию агента в целевом проекте и проверьте наличие skill. Если он не обнаружен, проверьте путь, YAML frontmatter, настройки доверия/политики клиента и документацию вашей версии. Для командного использования можно добавить установленные каталоги в Git проекта после review.
 
@@ -142,3 +142,19 @@ EMI и открытые меры снижения ПЭМИН. Только ан�
 4. Подготовить шаблоны power budget, constraint matrix и отчёта ревью.
 5. Провести review профильным инженером по SI/PI и EMC, затем уточнить правила по результатам реальных измерений.
 6. Выбрать и добавить лицензию перед распространением на её условиях; лицензия пока не определена.
+
+## Формализованные правила и профили
+
+Добавлен машиночитаемый [каталог из 180 правил](rules/catalog.yaml) (19 семейств) с уникальными PCB-* идентификаторами, степенью критичности, методом проверки и ссылкой на инженерное обоснование. Реестр дополняет прежний SKILL.md и источники; это draft для инженерного согласования.
+
+- [Геометрия, clearance/creepage, трассировка, крепёж и DFM](references/geometry-mechanical-dfm.md)
+- [Конденсаторы, резисторы, диоды, генераторы, дроссели, MOSFET, thermal](references/component-placement.md)
+- [Реле, подавление выбросов катушки и контактной нагрузки, EMC failure analysis](references/relay-switching-emc.md)
+- [Стандарты и область применимости](references/standards-applicability.md)
+- [Алгоритм AI/EDA review, ограничения автоматизации и статусы](references/rules-engine.md)
+- [Описание каталога](rules/README.md), [профили](profiles/), [JSON Schema](schemas/), [демонстрационный отчёт](examples/review-result.example.json)
+- [Дорожная карта](PLAN.md), [Backlog](TASKS.md), [Инструкции агентам](AGENTS.md)
+
+В `profiles/` стартовые параметры имеют значение `null` (TBD); это **не** разрешение на нулевой зазор. Никакие зазоры для сетевого напряжения, target impedance, clearance/creepage или расчёт тока не назначаются «по умолчанию». Рекомендуется сохранять конкретные fab/MPN/standard revisions и approvals в проекте платы.
+
+Статусы: `PASS`, `FAIL`, `REVIEW_REQUIRED`, `NOT_EVALUATED`, `N_A` (с объяснением). Для реального `PASS` требуется подтверждённый применимый критерий и evidence. Формальный EMC/электробезопасность/ПЭМИН compliance проверяется отдельно.

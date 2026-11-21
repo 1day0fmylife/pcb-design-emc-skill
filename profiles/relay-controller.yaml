@@ -1,0 +1,21 @@
+# Draft profile; null means TBD, not zero and not approval.
+profile_id: relay-controller
+description: "Контроллер реле с разделением contact/coil/control"
+inherits: generic-4layer
+approved: false
+feature_tags:
+  - relay
+  - power-switching
+  - emc
+constraints:
+  min_trace_width_mm: null
+  min_copper_gap_mm: null
+  copper_to_edge_mm: null
+  min_drill_mm: null
+  controlled_impedance_ohm: null
+  working_voltage_v: null
+  max_current_a: null
+notes:
+  - "Define coil AC/DC, release time and contact load before choosing suppression"
+  - "For hazardous voltages require separate insulation/safety calculations and lab review"
+  - "Return-path, reset and brownout review required"

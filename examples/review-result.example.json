@@ -1,0 +1,33 @@
+{
+  "design_revision": "EXAMPLE-NOT-A-REAL-BOARD",
+  "profile_id": "relay-controller",
+  "overall_status": "REVIEW_REQUIRED",
+  "findings": [
+    {
+      "rule_id": "PCB-RELAY-001",
+      "status": "REVIEW_REQUIRED",
+      "severity": "ERROR",
+      "refdes": null,
+      "net": "RELAY_COIL",
+      "layer": null,
+      "evidence": "No schematic, type of coil or suppression element supplied",
+      "criterion_source": null,
+      "confidence": "insufficient_data",
+      "remediation": "Request relay datasheet and coil driver schematic",
+      "verification": "schematic_review"
+    },
+    {
+      "rule_id": "PCB-GEO-002",
+      "status": "NOT_EVALUATED",
+      "severity": "BLOCKER",
+      "refdes": null,
+      "net": null,
+      "layer": null,
+      "evidence": "No safety classification, design voltage or mechanical slots information supplied",
+      "criterion_source": null,
+      "confidence": "not_evaluated",
+      "remediation": "Obtain applicable product standard and insulation matrix",
+      "verification": "engineering_review"
+    }
+  ]
+}

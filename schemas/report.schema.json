@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PCB Review Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "design_revision",
+    "profile_id",
+    "overall_status",
+    "findings"
+  ],
+  "properties": {
+    "design_revision": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": "string"
+    },
+    "overall_status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "REVIEW_REQUIRED",
+        "NOT_EVALUATED"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "rule_id",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "REVIEW_REQUIRED",
+              "NOT_EVALUATED",
+              "N_A"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "BLOCKER",
+              "ERROR",
+              "WARNING",
+              "INFO"
+            ]
+          },
+          "refdes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "net": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "layer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "criterion_source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remediation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verification": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
