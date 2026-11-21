@@ -18,9 +18,11 @@ except ModuleNotFoundError as error:
     raise
 
 if __package__:
+    from .kicad_board import read_board_inventory
     from .kicad_drc import import_drc
     from .pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 else:
+    from kicad_board import read_board_inventory
     from kicad_drc import import_drc
     from pcb_criteria import criterion_plan, validate_matrix, validate_report_findings
 
@@ -405,12 +407,18 @@ class ProfileReview:
         report = self.load_validated(path, "report")
         validate_report_findings(profile, report, self.analyze(profile))
 
-    def import_drc(self, profile, report_path, context_path):
+    def import_drc(self, profile, report_path, context_path, board_path=None):
         if report_path.suffix.lower() != ".json":
             raise ValueError("Вход KiCad DRC должен быть отчётом .json")
         report = self.load_validated(report_path, "kicad-drc")
         context = self.load_validated(context_path, "kicad-context")
-        result = import_drc(profile, report, context, str(report_path), self.rules)
+        board = None
+        if board_path is not None:
+            source_name = report["source"].replace("\\", "/").rsplit("/", 1)[-1]
+            if board_path.name != source_name:
+                raise ValueError("Имя переданной платы расходится с source отчёта KiCad")
+            board = read_board_inventory(board_path)
+        result = import_drc(profile, report, context, str(report_path), self.rules, board)
         return result | {"context_artifact": str(context_path)}
 
     def validate(self, extra_paths):
@@ -627,7 +635,11 @@ def arguments():
     drc.add_argument("profile", help="ID либо путь к профилю")
     drc.add_argument("report", type=Path, help="Отчёт KiCad DRC JSON")
     drc.add_argument("--context", type=Path, required=True, help="Ревизия платы и контекст объектов YAML/JSON")
+    drc.add_argument("--board", type=Path, help="Плата .kicad_pcb для привязки замечаний по UUID")
     drc.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    inventory = commands.add_parser("inventory-board", help="Прочитать объекты платы KiCad по UUID")
+    inventory.add_argument("board", type=Path, help="Плата .kicad_pcb")
+    inventory.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     return parser
 
 
@@ -670,7 +682,11 @@ def main():
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для импорта DRC укажите выходной файл .json")
             profile = review.profile(review.profile_path(args.profile))
-            emit(as_json(review.import_drc(profile, args.report, args.context)), args.output)
+            emit(as_json(review.import_drc(profile, args.report, args.context, args.board)), args.output)
+        elif args.command == "inventory-board":
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для инвентаря укажите выходной файл .json")
+            emit(as_json(read_board_inventory(args.board)), args.output)
     except (ValueError, OSError) as error:
         parser.exit(2, f"Ошибка — {error}\n")
 

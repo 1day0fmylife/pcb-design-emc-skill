@@ -11,11 +11,39 @@ VIOLATION_RULES = {
 WIDTH_METRICS = {"min": "trace_width", "max": "trace_width_max"}
 
 
-def import_drc(profile, report, context, artifact, known_rules):
+def enrich_item(item, index, board_items):
+    uuid = item["uuid"].lower()
+    metadata = index.get(uuid, {})
+    result = item | {"project_context": metadata}
+    if board_items is None:
+        return result
+    native = board_items.get(uuid)
+    if native is None:
+        return result | {"board_match": "not_found"}
+
+    derived = {field: native[field] for field in ("refdes", "net") if field in native}
+    layers = native["layers"]
+    if len(layers) == 1:
+        derived["layer"] = layers[0]
+    for field in ("refdes", "net"):
+        if field in metadata and field in derived and metadata[field] != derived[field]:
+            raise ValueError(f"{uuid} — поле {field} в контексте расходится с PCB")
+    if layers and "layer" in metadata and metadata["layer"] not in layers:
+        raise ValueError(f"{uuid} — слой в контексте расходится с PCB")
+    return result | {"project_context": derived | metadata, "board_match": "matched", "board_item": native}
+
+
+def import_drc(profile, report, context, artifact, known_rules, board=None):
     if context["design_revision"] != profile["design_revision"]:
         raise ValueError("Ревизия контекста KiCad не совпадает с профилем")
     if context["board_source"] != report["source"]:
         raise ValueError("board_source контекста не совпадает с source отчёта KiCad")
+    board_items = None
+    if board is not None:
+        expected_sha = context.get("board_sha256")
+        if expected_sha and expected_sha != board["board_sha256"]:
+            raise ValueError("SHA-256 переданной платы расходится с board_sha256 из контекста KiCad")
+        board_items = board["items"]
 
     width_bounds = context.get("track_width_bounds", {})
     width_locations = {
@@ -41,12 +69,12 @@ def import_drc(profile, report, context, artifact, known_rules):
         criteria_by_object.setdefault(key, []).append(criterion_id)
 
     findings = []
+    board_matches = Counter()
     for section in SECTIONS:
         for position, violation in enumerate(report[section]):
-            affected = [
-                item | {"project_context": index.get(item["uuid"].lower(), {})}
-                for item in violation["items"]
-            ]
+            affected = [enrich_item(item, index, board_items) for item in violation["items"]]
+            if board_items is not None:
+                board_matches.update(item["board_match"] for item in affected)
             locations = [item["pos"] for item in affected]
             if "pos" in violation:
                 locations.append(violation["pos"])
@@ -65,9 +93,10 @@ def import_drc(profile, report, context, artifact, known_rules):
                 rule_id = None
             object_ids = {item["project_context"].get("object_id") for item in affected}
             shared_object = next(iter(object_ids)) if len(object_ids) == 1 else None
+            objects_resolved = board is None or all(item["board_match"] == "matched" for item in affected)
             candidates = (
                 criteria_by_object.get((shared_object, metric, rule_id), [])
-                if rule_id and shared_object and not excluded else []
+                if rule_id and shared_object and not excluded and objects_resolved else []
             )
             findings.append(violation | {
                 "items": affected,
@@ -82,7 +111,7 @@ def import_drc(profile, report, context, artifact, known_rules):
     counts = Counter(
         "excluded" if item["excluded"] else item["severity"] for item in findings
     )
-    return {
+    result = {
         "report_type": "kicad_drc_import",
         "profile_id": profile["profile_id"],
         "design_revision": profile["design_revision"],
@@ -99,3 +128,12 @@ def import_drc(profile, report, context, artifact, known_rules):
         "counts": {key: counts[key] for key in ("error", "warning", "excluded")},
         "findings": findings,
     }
+    if board is not None:
+        result["board"] = {
+            "source": board["source"],
+            "sha256": board["board_sha256"],
+            "sha256_verified_against_context": "board_sha256" in context,
+            "pcbnew_version": board["pcbnew_version"],
+            "matches": {key: board_matches[key] for key in ("matched", "not_found")},
+        }
+    return result

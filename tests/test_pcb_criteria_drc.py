@@ -1,4 +1,6 @@
 import copy
+from hashlib import sha256
+from importlib.util import find_spec
 import json
 import subprocess
 import sys
@@ -13,6 +15,7 @@ from scripts.pcb_profile import ProfileReview, ROOT, markdown, validate_document
 
 FIXTURE = ROOT / "examples" / "relay-review"
 KICAD_QA = ROOT / "examples" / "kicad-multinetclasses"
+KICAD_DEMO = Path("/usr/share/kicad/demos/pic_programmer/pic_programmer.kicad_pcb")
 
 
 class CriteriaAndDrcTest(unittest.TestCase):
@@ -194,6 +197,63 @@ class CriteriaAndDrcTest(unittest.TestCase):
                 self.assertEqual(finding["candidate_criterion_ids"], expected)
         with self.assertRaisesRegex(ValueError, "track_width_bounds"):
             import_drc(profile, native, context, "drc.json", self.review.rules)
+
+    def test_drc_import_extracts_board_context_and_detects_mismatches(self):
+        profile = self.resolve_fixture()
+        native = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")
+        context = self.review.load_validated(FIXTURE / "drc-context.yaml", "kicad-context")
+        first, second = context["items"]
+        declared = {uuid: {"object_id": "SIGNAL"} for uuid in context["items"]}
+        context = context | {"board_sha256": "a" * 64, "items": declared}
+        board = {
+            "source": native["source"], "board_sha256": "a" * 64, "pcbnew_version": "10.0.8",
+            "items": {
+                first: {"kind": "PAD", "net": "RELAY_CTRL", "refdes": "K1", "layers": ["F.Cu"]},
+                second: {"kind": "PAD", "net": "RELAY_SENSE", "refdes": "Q1", "layers": ["F.Cu", "B.Cu"]},
+            },
+        }
+
+        def run(metadata, inventory):
+            return import_drc(profile, native, metadata, "drc.json", self.review.rules, inventory)
+
+        result = run(context, board)
+        self.assertTrue(result["board"]["sha256_verified_against_context"])
+        self.assertEqual(result["board"]["matches"], {"matched": 2, "not_found": 0})
+        finding = result["findings"][0]
+        self.assertEqual(finding["candidate_criterion_ids"], ["SIGNAL-GAP"])
+        self.assertEqual(finding["items"][0]["project_context"],
+                         {"object_id": "SIGNAL", "refdes": "K1", "net": "RELAY_CTRL", "layer": "F.Cu"})
+        self.assertNotIn("layer", finding["items"][1]["project_context"])
+        self.assertEqual(finding["items"][1]["board_item"]["layers"], ["F.Cu", "B.Cu"])
+
+        partial = run(context, board | {"items": {first: board["items"][first]}})
+        self.assertEqual(partial["board"]["matches"], {"matched": 1, "not_found": 1})
+        self.assertEqual(partial["findings"][0]["candidate_criterion_ids"], [])
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            run(context | {"board_sha256": "b" * 64}, board)
+        for key, value in [("refdes", "K2"), ("net", "SENSE"), ("layer", "B.Cu")]:
+            items = declared | {first: declared[first] | {key: value}}
+            with self.subTest(field=key), self.assertRaisesRegex(ValueError, "расходится с PCB"):
+                run(context | {"items": items}, board)
+
+    @unittest.skipUnless(find_spec("pcbnew") is not None and KICAD_DEMO.is_file(),
+                         "Нужны pcbnew и установленная демонстрационная плата KiCad")
+    def test_inventory_cli_reads_native_demo_without_modification(self):
+        before = sha256(KICAD_DEMO.read_bytes()).hexdigest()
+        command = [sys.executable, "-B", str(ROOT / "scripts" / "pcb_profile.py")]
+        result = subprocess.run(
+            [*command, "inventory-board", str(KICAD_DEMO)], check=True, capture_output=True,
+        )
+        inventory = json.loads(result.stdout)
+        self.assertEqual(inventory["board_sha256"], before)
+        self.assertEqual(sha256(KICAD_DEMO.read_bytes()).hexdigest(), before)
+        self.assertTrue(inventory["nets"])
+        for kind in ("FOOTPRINT", "PAD", "PCB_TRACK", "PCB_VIA", "ZONE"):
+            self.assertGreater(inventory["item_counts"][kind], 0)
+        for item in inventory["items"].values():
+            if item["kind"] == "PAD":
+                footprint = inventory["items"][item["footprint_uuid"]]
+                self.assertEqual(item["refdes"], footprint["refdes"])
 
     def test_report_compares_width_against_an_upper_bound(self):
         profile = self.review.profile(KICAD_QA / "profile.yaml")
