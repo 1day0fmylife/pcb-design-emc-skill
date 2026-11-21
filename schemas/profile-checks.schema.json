@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PCB profile review policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "features", "inputs", "families", "checks"],
+  "properties": {
+    "version": {"$ref": "#/$defs/text"},
+    "features": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label"],
+        "dependentRequired": {"guidance": ["reference"], "reference": ["guidance"]},
+        "properties": {
+          "label": {"$ref": "#/$defs/text"},
+          "implies": {"$ref": "#/$defs/names"},
+          "guidance": {"$ref": "#/$defs/text"},
+          "reference": {"$ref": "#/$defs/text"}
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/text"}
+    },
+    "families": {
+      "type": "object",
+      "additionalProperties": {
+        "required": ["domain", "reason", "evidence", "inputs"],
+        "$ref": "#/$defs/detail"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "required": ["ids"],
+        "$ref": "#/$defs/detail"
+      }
+    }
+  },
+  "$defs": {
+    "text": {"type": "string", "pattern": "\\S"},
+    "names": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/text"}
+    },
+    "detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ids": {"$ref": "#/$defs/names"},
+        "domain": {
+          "enum": ["si_pi", "electrical_safety", "emc_emission", "emc_immunity",
+                   "fabrication", "mechanical", "thermal", "testability"]
+        },
+        "reason": {"$ref": "#/$defs/text"},
+        "evidence": {"$ref": "#/$defs/text"},
+        "correction": {"$ref": "#/$defs/text"},
+        "when": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/names"}
+        },
+        "inputs": {"$ref": "#/$defs/names"},
+        "constraints": {"$ref": "#/$defs/names"}
+      }
+    }
+  }
+}

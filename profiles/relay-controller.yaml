@@ -16,6 +16,6 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "Define coil AC/DC, release time and contact load before choosing suppression"
-  - "For hazardous voltages require separate insulation/safety calculations and lab review"
-  - "Return-path, reset and brownout review required"
+  - "До выбора подавления выбросов указать тип катушки AC/DC, время отпускания и контактную нагрузку."
+  - "Для опасных напряжений передать критерии изоляции и испытаний компетентному инженеру и лаборатории."
+  - "Проверить пути возврата, RESET и поведение при провалах питания."

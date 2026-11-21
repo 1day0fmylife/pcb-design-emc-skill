@@ -34,6 +34,49 @@
       },
       "uniqueItems": true
     },
+    "absent_feature_tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "design_revision": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "null"],
+        "minLength": 1
+      }
+    },
+    "constraint_sources": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "min_trace_width_mm",
+          "min_copper_gap_mm",
+          "copper_to_edge_mm",
+          "min_drill_mm",
+          "controlled_impedance_ohm",
+          "working_voltage_v",
+          "max_current_a"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document", "revision", "scope"],
+        "properties": {
+          "document": { "type": "string", "minLength": 1 },
+          "revision": { "type": "string", "minLength": 1 },
+          "scope": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "constraints": {
       "type": "object",
       "additionalProperties": false,
@@ -89,10 +132,253 @@
         }
       }
     },
+    "review_objects": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "kind",
+          "modes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "domain_pair",
+              "net_class",
+              "port",
+              "component",
+              "board"
+            ]
+          },
+          "description": {
+            "$ref": "#/$defs/text"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/text"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/identifier"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "domain_pair"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "members"
+          ]
+        },
+        "else": {
+          "not": {
+            "required": [
+              "members"
+            ]
+          }
+        }
+      }
+    },
+    "criteria": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "object_id",
+          "mode",
+          "metric"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "pattern": "^PCB-[A-Z]+-[0-9]{3}$"
+          },
+          "object_id": {
+            "$ref": "#/$defs/identifier"
+          },
+          "mode": {
+            "$ref": "#/$defs/identifier"
+          },
+          "metric": {
+            "enum": [
+              "clearance",
+              "creepage",
+              "copper_gap",
+              "trace_width",
+              "trace_width_max",
+              "controlled_impedance",
+              "qualitative"
+            ]
+          },
+          "limit": {
+            "$ref": "#/$defs/positive_or_null"
+          },
+          "tolerance": {
+            "$ref": "#/$defs/positive_or_null"
+          },
+          "unit": {
+            "enum": [
+              "mm",
+              "ohm"
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/criterion_source"
+              }
+            ]
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/text"
+              }
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "metric": {
+              "const": "qualitative"
+            }
+          }
+        },
+        "then": {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "limit"
+                ]
+              },
+              {
+                "required": [
+                  "unit"
+                ]
+              },
+              {
+                "required": [
+                  "tolerance"
+                ]
+              }
+            ]
+          }
+        },
+        "else": {
+          "required": [
+            "limit",
+            "unit"
+          ],
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "requirement"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "metric": {
+                    "const": "controlled_impedance"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "unit": {
+                    "const": "ohm"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "unit": {
+                    "const": "mm"
+                  }
+                },
+                "not": {
+                  "required": [
+                    "tolerance"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
     "notes": {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "positive_or_null": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0
+    },
+    "criterion_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document",
+        "revision",
+        "section"
+      ],
+      "properties": {
+        "document": {
+          "$ref": "#/$defs/text"
+        },
+        "revision": {
+          "$ref": "#/$defs/text"
+        },
+        "section": {
+          "$ref": "#/$defs/text"
+        }
       }
     }
   }

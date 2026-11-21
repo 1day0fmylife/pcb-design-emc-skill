@@ -1,0 +1,15 @@
+design_revision: FIXTURE-A
+board_source: relay-fixture.kicad_pcb
+mode: normal
+exit_code: 0
+items:
+  00000000-0000-4000-8000-000000000001:
+    object_id: SIGNAL
+    refdes: K1
+    net: RELAY_CTRL
+    layer: F.Cu
+  00000000-0000-4000-8000-000000000002:
+    object_id: SIGNAL
+    refdes: Q1
+    net: RELAY_SENSE
+    layer: F.Cu

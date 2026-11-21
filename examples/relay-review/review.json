@@ -1,0 +1,19 @@
+{
+  "design_revision": "FIXTURE-A",
+  "profile_id": "relay-fixture",
+  "overall_status": "REVIEW_REQUIRED",
+  "scope_criteria": ["SIGNAL-GAP"],
+  "findings": [
+    {
+      "rule_id": "PCB-GEO-001",
+      "criterion_id": "SIGNAL-GAP",
+      "object_id": "SIGNAL",
+      "status": "REVIEW_REQUIRED",
+      "severity": "ERROR",
+      "layer": "F.Cu",
+      "evidence": "Учебный DRC содержит сообщение о зазоре между площадками K1 и Q1. Для профиля требуется согласованный критерий зазора.",
+      "evidence_ref": {"artifact": "examples/relay-review/drc.json", "locator": "/violations/0"},
+      "verification": "Инженерная сверка замечания DRC с критерием класса сетей"
+    }
+  ]
+}

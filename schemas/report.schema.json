@@ -3,103 +3,96 @@
   "title": "PCB Review Result",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "design_revision",
-    "profile_id",
-    "overall_status",
-    "findings"
-  ],
+  "required": ["design_revision", "profile_id", "overall_status", "findings"],
   "properties": {
-    "design_revision": {
-      "type": "string"
-    },
-    "profile_id": {
-      "type": "string"
-    },
-    "overall_status": {
-      "enum": [
-        "PASS",
-        "FAIL",
-        "REVIEW_REQUIRED",
-        "NOT_EVALUATED"
-      ]
+    "design_revision": {"$ref": "#/$defs/text"},
+    "profile_id": {"$ref": "#/$defs/id"},
+    "overall_status": {"enum": ["PASS", "FAIL", "REVIEW_REQUIRED", "NOT_EVALUATED"]},
+    "scope_criteria": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/id"}
     },
     "findings": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "rule_id",
-          "status",
-          "evidence"
-        ],
+      "items": {"$ref": "#/$defs/finding"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"findings": {"contains": {"properties": {"status": {"const": "FAIL"}}}}}},
+      "then": {"properties": {"overall_status": {"const": "FAIL"}}},
+      "else": {"properties": {"overall_status": {"not": {"const": "FAIL"}}}}
+    },
+    {
+      "if": {"properties": {"overall_status": {"const": "PASS"}}},
+      "then": {
+        "required": ["scope_criteria"],
         "properties": {
-          "rule_id": {
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "PASS",
-              "FAIL",
-              "REVIEW_REQUIRED",
-              "NOT_EVALUATED",
-              "N_A"
-            ]
-          },
-          "severity": {
-            "enum": [
-              "BLOCKER",
-              "ERROR",
-              "WARNING",
-              "INFO"
-            ]
-          },
-          "refdes": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "net": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "layer": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "evidence": {
-            "type": "string"
-          },
-          "criterion_source": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "confidence": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "remediation": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "verification": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "findings": {
+            "contains": {"properties": {"status": {"const": "PASS"}}},
+            "items": {"properties": {"status": {"enum": ["PASS", "N_A"]}}}
           }
         }
+      }
+    },
+    {
+      "if": {"properties": {"overall_status": {"const": "NOT_EVALUATED"}}},
+      "then": {"properties": {"findings": {"items": {"properties": {"status": {"enum": ["NOT_EVALUATED", "N_A"]}}}}}}
+    }
+  ],
+  "$defs": {
+    "text": {"type": "string", "pattern": "\\S"},
+    "nullable_text": {"type": ["string", "null"]},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
+    "finding": {
+      "type": "object",
+      "required": ["rule_id", "status", "evidence"],
+      "dependentRequired": {
+        "criterion_id": ["object_id"],
+        "measurement": ["criterion_id", "evidence_ref"],
+        "assessment": ["criterion_id", "evidence_ref"]
+      },
+      "properties": {
+        "rule_id": {"type": "string", "pattern": "^PCB-[A-Z]+-[0-9]{3}$"},
+        "status": {"enum": ["PASS", "FAIL", "REVIEW_REQUIRED", "NOT_EVALUATED", "N_A"]},
+        "severity": {"enum": ["BLOCKER", "ERROR", "WARNING", "INFO"]},
+        "refdes": {"$ref": "#/$defs/nullable_text"},
+        "net": {"$ref": "#/$defs/nullable_text"},
+        "layer": {"$ref": "#/$defs/nullable_text"},
+        "evidence": {"$ref": "#/$defs/text"},
+        "criterion_source": {"$ref": "#/$defs/nullable_text"},
+        "confidence": {"$ref": "#/$defs/nullable_text"},
+        "remediation": {"$ref": "#/$defs/nullable_text"},
+        "verification": {"$ref": "#/$defs/nullable_text"},
+        "criterion_id": {"$ref": "#/$defs/id"},
+        "object_id": {"$ref": "#/$defs/id"},
+        "evidence_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact", "locator"],
+          "properties": {
+            "artifact": {"$ref": "#/$defs/text"},
+            "locator": {"$ref": "#/$defs/text"}
+          }
+        },
+        "assessment": {"enum": ["satisfied", "not_satisfied"]},
+        "measurement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "unit"],
+          "properties": {
+            "value": {"type": "number", "minimum": 0},
+            "unit": {"enum": ["mm", "ohm"]}
+          }
+        }
+      },
+      "if": {"properties": {"status": {"enum": ["PASS", "FAIL"]}}},
+      "then": {
+        "required": ["criterion_id", "object_id", "evidence_ref", "verification"],
+        "oneOf": [{"required": ["measurement"]}, {"required": ["assessment"]}],
+        "properties": {"verification": {"$ref": "#/$defs/text"}}
       }
     }
   }

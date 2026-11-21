@@ -16,5 +16,5 @@ constraints:
   working_voltage_v: null
   max_current_a: null
 notes:
-  - "No nominal isolating gaps prefilled; require applicable product safety review"
-  - "Check via, slots, fastening, shield, test points and all layers across isolation barrier"
+  - "Определить изоляционные расстояния по применимым требованиям безопасности к изделию."
+  - "Проверить via, прорези, крепёж, экраны и тестовые точки относительно барьера во всех слоях."

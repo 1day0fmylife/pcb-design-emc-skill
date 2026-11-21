@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project context for KiCad DRC v1 import",
+  "type": "object",
+  "required": ["design_revision", "board_source"],
+  "additionalProperties": false,
+  "properties": {
+    "design_revision": {"$ref": "#/$defs/text"},
+    "board_source": {"$ref": "#/$defs/text"},
+    "exit_code": {"type": "integer", "minimum": 0},
+    "mode": {"$ref": "#/$defs/id"},
+    "track_width_bounds": {
+      "type": "object",
+      "propertyNames": {"pattern": "^/violations/(0|[1-9][0-9]*)$"},
+      "additionalProperties": {"enum": ["min", "max"]}
+    },
+    "items": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "object_id": {"$ref": "#/$defs/id"},
+          "refdes": {"$ref": "#/$defs/text"},
+          "net": {"$ref": "#/$defs/text"},
+          "layer": {"$ref": "#/$defs/text"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": {"type": "string", "pattern": "\\S"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"}
+  }
+}
