@@ -36,7 +36,7 @@ def read_board_inventory(path, *, stackup_only=False):
                 "stackup": collect_stackup(document, copper_layers),
             }
         else:
-            inventory = {"report_type": "kicad_board_inventory"} | collect_objects(board)
+            inventory = {"report_type": "kicad_board_inventory"} | collect_objects(board, pcbnew)
     except (AttributeError, RuntimeError, TypeError) as error:
         raise ValueError(f"Ошибка чтения {path} через pcbnew — {error}") from error
 
@@ -49,7 +49,20 @@ def read_board_inventory(path, *, stackup_only=False):
     } | inventory
 
 
-def collect_objects(board):
+def pad_hole(pad, pcbnew):
+    attributes = {pcbnew.PAD_ATTRIB_PTH: "PTH", pcbnew.PAD_ATTRIB_NPTH: "NPTH"}
+    kind = attributes.get(pad.GetAttribute())
+    if kind is None:
+        return None
+    size = pad.GetDrillSize()
+    if size.x <= 0 or size.y <= 0:
+        return None
+    shapes = {pcbnew.PAD_DRILL_SHAPE_CIRCLE: "circle", pcbnew.PAD_DRILL_SHAPE_OBLONG: "oblong"}
+    x_mm, y_mm = pcbnew.ToMM(size)
+    return {"kind": kind, "shape": shapes.get(pad.GetDrillShape()), "x_mm": x_mm, "y_mm": y_mm}
+
+
+def collect_objects(board, pcbnew):
     layers = {
         layer: str(board.GetStandardLayerName(layer))
         for layer in board.GetEnabledLayers().Seq()
@@ -82,6 +95,9 @@ def collect_objects(board):
         if pad_number is not None:
             row["pad_number"] = pad_number
             row["electrical"] = bool(item.IsOnCopperLayer() and not item.IsNPTHWithNoCopper())
+            hole = pad_hole(item, pcbnew)
+            if hole is not None:
+                row["hole"] = hole
             if "net" in row and item.GetNetCode() > 0:
                 # KiCad keeps the full, unescaped name inside brackets. GetDisplayNetname
                 # can shorten a name from the root sheet, so retain the full form here.

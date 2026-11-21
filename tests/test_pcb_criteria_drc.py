@@ -198,6 +198,57 @@ class CriteriaAndDrcTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "track_width_bounds"):
             import_drc(profile, native, context, "drc.json", self.review.rules)
 
+    def test_geometric_violations_route_distinct_rules_and_keep_native_findings(self):
+        profile = self.resolve_fixture()
+        context = self.review.load_validated(FIXTURE / "drc-context.yaml", "kicad-context")
+        native = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")
+        types = {
+            "copper_edge_clearance": "PCB-GEO-003", "copper_outside_board": "PCB-GEO-003",
+            "annular_width": "PCB-GEO-005", "hole_clearance": "PCB-GEO-006",
+            "hole_to_hole": "PCB-DFM-001", "holes_co_located": "PCB-DFM-001",
+            "drill_out_of_range": "PCB-DFM-001", "microvia_drill_out_of_range": "PCB-DFM-001",
+            "via_diameter": "PCB-DFM-001", "solder_mask_bridge": "PCB-DFM-003",
+            "isolated_copper": "PCB-GND-003", "creepage": None,
+        }
+        violations = [
+            native["violations"][0] | {"type": native_type, "excluded": native_type == "annular_width"}
+            for native_type in types
+        ]
+        result = import_drc(profile, native | {"violations": violations}, context, "drc.json", self.review.rules)
+        self.assertEqual({row["type"]: row["candidate_rule_id"] for row in result["findings"]}, types)
+        self.assertEqual(result["findings"][2]["evidence_ref"]["locator"], "/violations/2")
+        self.assertNotIn("PCB-GEO-005", result["active_candidates_by_rule"])
+        self.assertTrue(all(row["status"] == "REVIEW_REQUIRED" for row in result["findings"]))
+        self.assertTrue(all(row["candidate_criterion_ids"] == [] for row in result["findings"]))
+
+    def test_copper_to_edge_requires_identified_edge_cuts_and_shared_board_scope(self):
+        chain = self.review.load_profile_chain(FIXTURE / "profile.yaml")
+        leaf = chain[-1]
+        leaf["review_objects"]["LAYOUT"] = {"kind": "board", "modes": ["normal"]}
+        leaf["criteria"]["EDGE"] = {
+            "rule_id": "PCB-GEO-003", "object_id": "LAYOUT", "mode": "normal",
+            "metric": "copper_to_edge", "limit": None, "unit": "mm",
+        }
+        validate_document(leaf, self.review.validators["profile"], "fixture")
+        profile = self.review.resolve_profile(chain)
+        context = self.review.load_validated(FIXTURE / "drc-context.yaml", "kicad-context")
+        native = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")
+        native["violations"] = [native["violations"][0] | {"type": "copper_edge_clearance"}]
+        first, second = context["items"]
+        for layer, expected in [("Edge.Cuts", ["EDGE"]), ("Margin", []), ("F.Cu", [])]:
+            with self.subTest(layer=layer):
+                items = {first: {"object_id": "LAYOUT", "layer": layer},
+                         second: {"object_id": "LAYOUT", "layer": "F.Cu"}}
+                result = import_drc(profile, native, context | {"items": items}, "drc.json", self.review.rules)
+                finding = result["findings"][0]
+                self.assertEqual(finding["candidate_rule_id"], "PCB-GEO-003")
+                self.assertEqual(finding["candidate_criterion_ids"], expected)
+                self.assertEqual(finding["candidate_metric"], "copper_to_edge" if expected else None)
+        items[first]["layer"] = "Edge.Cuts"
+        items[second].pop("object_id")
+        result = import_drc(profile, native, context | {"items": items}, "drc.json", self.review.rules)
+        self.assertEqual(result["findings"][0]["candidate_criterion_ids"], [])
+
     def test_drc_import_extracts_board_context_and_detects_mismatches(self):
         profile = self.resolve_fixture()
         native = self.review.load_validated(FIXTURE / "drc.json", "kicad-drc")
@@ -254,6 +305,9 @@ class CriteriaAndDrcTest(unittest.TestCase):
             if item["kind"] == "PAD":
                 footprint = inventory["items"][item["footprint_uuid"]]
                 self.assertEqual(item["refdes"], footprint["refdes"])
+        holes = [item["hole"] for item in inventory["items"].values() if "hole" in item]
+        self.assertEqual({hole["kind"] for hole in holes}, {"PTH", "NPTH"})
+        self.assertTrue(all(hole["x_mm"] > 0 and hole["y_mm"] > 0 for hole in holes))
 
     def test_report_compares_width_against_an_upper_bound(self):
         profile = self.review.profile(KICAD_QA / "profile.yaml")

@@ -8,6 +8,7 @@ METRICS = {
     "clearance": ("domain_pair", ("PCB-GEO-002",), "mm"),
     "creepage": ("domain_pair", ("PCB-GEO-002",), "mm"),
     "copper_gap": ("net_class", ("PCB-GEO-001", "PCB-DFM-001"), "mm"),
+    "copper_to_edge": ("board", ("PCB-GEO-003",), "mm"),
     "trace_width": ("net_class", ("PCB-DFM-001",), "mm"),
     "trace_width_max": ("net_class", ("PCB-DFM-001",), "mm"),
     "controlled_impedance": ("port", ("PCB-HS-001",), "ohm"),
