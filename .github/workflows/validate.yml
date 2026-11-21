@@ -1,0 +1,43 @@
+name: Validate PCB review
+
+'on':
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.14']
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: python -m pip install -r scripts/requirements.txt
+      - name: Validate schemas, rules and profiles
+        run: >
+          python -B scripts/pcb_profile.py validate
+          examples/relay-review/profile.yaml
+          examples/kicad-multinetclasses/profile.yaml
+      - name: Validate example review
+        run: >
+          python -B scripts/pcb_profile.py validate-report
+          examples/relay-review/profile.yaml
+          examples/relay-review/review.json
+      - name: Run test suite
+        run: python -B -m unittest discover -s tests -v
