@@ -101,12 +101,18 @@ def segment_iu(item):
 
 def collect_edge_geometry(board, pcbnew, trace_uuids):
     segments = []
+    circles = []
     issues = []
+    footprint_edges = []
     footprint_graphics = chain.from_iterable(footprint.GraphicalItems() for footprint in board.GetFootprints())
-    for item in chain(board.GetDrawings(), footprint_graphics):
+    drawings = ((item, True) for item in board.GetDrawings())
+    footprint_drawings = ((item, False) for item in footprint_graphics)
+    for item, board_level in chain(drawings, footprint_drawings):
         if item.GetLayer() != pcbnew.Edge_Cuts:
             continue
         uuid = str(item.m_Uuid.AsString()).lower()
+        if not board_level:
+            footprint_edges.append(uuid)
         if not uuid or uuid == NIL_UUID:
             issues.append({"reason": "outline_uuid_missing"})
         elif item.GetClass() == "PCB_SHAPE" and item.GetShape() == pcbnew.SHAPE_T_SEGMENT:
@@ -117,11 +123,23 @@ def collect_edge_geometry(board, pcbnew, trace_uuids):
                 segments.extend((uuid, edge) for edge in zip(corners, corners[1:] + corners[:1]))
             else:
                 issues.append({"reason": "invalid_outline_rectangle", "uuid": uuid})
+        elif (
+            board_level and item.GetClass() == "PCB_SHAPE"
+            and item.GetShape() == getattr(pcbnew, "SHAPE_T_CIRCLE", None)
+            and hasattr(item, "GetCenter") and hasattr(item, "GetRadius")
+        ):
+            center = point_iu(item.GetCenter())
+            if center == point_iu(item.GetEnd()):
+                issues.append({"reason": "zero_radius_outline_circle", "uuid": uuid})
+            else:
+                circles.append((uuid, (center, item.GetRadius())))
         else:
             issues.append({"reason": "unsupported_outline_shape", "uuid": uuid})
 
-    return {"outline_segments": segments, "outline_issues": issues} | collect_trace_geometry(
-        board, pcbnew, trace_uuids
+    if circles and not issues and footprint_edges:
+        issues.append({"reason": "footprint_outline_with_circles_unconfirmed", "edge_uuids": footprint_edges})
+    return {"outline_segments": segments, "outline_circles": circles, "outline_issues": issues} | (
+        collect_trace_geometry(board, pcbnew, trace_uuids)
     )
 
 
