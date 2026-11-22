@@ -55,8 +55,9 @@ class CopperGapComparisonTest(unittest.TestCase):
             "trace_geometry": {"units_per_mm": 1000, "tracks": self.tracks},
         }
 
-    def result(self):
-        return compare_copper_gap(self.profile, self.board, self.context, self.review.analyze(self.profile))
+    def result(self, *, all_pairs=False):
+        plan = self.review.analyze(self.profile)
+        return compare_copper_gap(self.profile, self.board, self.context, plan, all_pairs=all_pairs)
 
     def test_interclass_boundary_uses_both_widths_and_unordered_pair(self):
         result = self.result()
@@ -147,6 +148,57 @@ class CopperGapComparisonTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_document(self.context, schema, "test")
 
+    def test_automatic_scope_pairs_only_selected_different_nets_on_the_same_layer(self):
+        del self.context["trace_pairs"]
+        same_net_uuid = "00000000-0000-0000-0000-000000000001"
+        other_layer_uuid = "00000000-0000-0000-0000-000000000002"
+        outside_scope_uuid = "00000000-0000-0000-0000-000000000003"
+        item = self.board["items"][POWER_UUID]
+        self.board["items"].update({
+            same_net_uuid: item.copy(),
+            other_layer_uuid: item | {"layers": ["B.Cu"]},
+            outside_scope_uuid: item.copy(),
+        })
+        for uuid in (same_net_uuid, other_layer_uuid, outside_scope_uuid):
+            self.tracks[uuid] = self.tracks[POWER_UUID].copy()
+        self.context["items"].update({
+            same_net_uuid: {"object_id": "POWER"},
+            other_layer_uuid: {"object_id": "POWER"},
+        })
+        result = self.result(all_pairs=True)
+        self.assertEqual(result["scope_mode"], "all_pairs")
+        self.assertNotIn(outside_scope_uuid, result["scope_uuids"])
+        self.assertEqual(result["scope_pairs"], [[same_net_uuid, DEFAULT_UUID], [DEFAULT_UUID, POWER_UUID]])
+        self.assertEqual(result["unresolved_traces"], [])
+        self.assertEqual(result["status_counts"], {"PASS": 2})
+        self.assertEqual(result["overall_status"], "PASS")
+
+    def test_automatic_scope_retains_unresolved_selection(self):
+        del self.context["trace_pairs"]
+        missing_uuid = "00000000-0000-0000-0000-000000000001"
+        self.context["items"][missing_uuid] = {"object_id": "POWER"}
+        result = self.result(all_pairs=True)
+        self.assertEqual(result["status_counts"], {"PASS": 1})
+        self.assertEqual(result["overall_status"], "REVIEW_REQUIRED")
+        self.assertEqual(result["unresolved_traces"], [
+            {"uuid": missing_uuid, "reason": "uuid_not_found", "status": "REVIEW_REQUIRED"},
+        ])
+        self.criterion["limit"] = 0.6
+        self.assertEqual(self.result(all_pairs=True)["overall_status"], "FAIL")
+
+    def test_automatic_scope_without_applicable_pairs_requires_confirmed_inputs(self):
+        with self.assertRaisesRegex(ValueError, "без поля trace_pairs"):
+            self.result(all_pairs=True)
+        del self.context["trace_pairs"]
+        self.board["items"][POWER_UUID]["layers"] = ["B.Cu"]
+        result = self.result(all_pairs=True)
+        self.assertEqual(result["overall_status"], "N_A")
+        self.assertEqual(result["scope_pairs"], [])
+        del self.context["items"][POWER_UUID]
+        result = self.result(all_pairs=True)
+        self.assertEqual(result["overall_status"], "REVIEW_REQUIRED")
+        self.assertIn("trace_scope_insufficient", result["blockers"])
+
     @unittest.skipUnless(find_spec("pcbnew") and DEMO.is_file() and DEMO.with_suffix(".kicad_pro").is_file(),
                          "Нужны pcbnew и демонстрационный проект")
     def test_cli_measures_real_default_power_pair_without_changing_project(self):
@@ -176,7 +228,14 @@ class CopperGapComparisonTest(unittest.TestCase):
             command = [sys.executable, "-B", str(ROOT / "scripts/pcb_profile.py"), "compare-copper-gap",
                        str(profile_path), "--board", str(DEMO), "--context", str(context_path)]
             result = json.loads(subprocess.check_output(command, timeout=30))
+            del context["trace_pairs"]
+            context_path.write_text(json.dumps(context), encoding="utf-8")
+            automatic = json.loads(subprocess.check_output(command + ["--all-pairs"], timeout=30))
         self.assertEqual(result["overall_status"], "PASS")
+        self.assertEqual(automatic["overall_status"], "PASS")
+        self.assertEqual(automatic["scope_uuids"], [DEFAULT_UUID, POWER_UUID])
+        self.assertEqual(automatic["scope_pairs"], result["scope_pairs"])
+        self.assertEqual(automatic["checks"], result["checks"])
         self.assertTrue(result["board"]["sha256_verified_against_context"])
         row, = result["checks"]
         self.assertEqual([trace["net"] for trace in row["traces"]], ["Net-(D4-A)", "VCC"])

@@ -1,7 +1,8 @@
 """Номинальный зазор меди между выбранными парами прямых дорожек KiCad."""
 
-from collections import Counter
+from collections import Counter, defaultdict
 from fractions import Fraction
+from itertools import combinations, product
 from math import sqrt
 
 if __package__:
@@ -38,17 +39,30 @@ def native_trace(uuid, board_items, context_items):
     }, None
 
 
-def compare_trace_pair(uuids, board, context, objects, pairs_by_members, criteria):
+def select_trace_pairs(bound_traces):
+    by_layer = defaultdict(lambda: defaultdict(list))
+    for uuid, (trace, problem) in bound_traces.items():
+        if problem is None:
+            by_layer[trace["layer"]][trace["net"]].append(uuid)
+    return sorted(
+        tuple(sorted(pair))
+        for nets in by_layer.values()
+        for first_net, second_net in combinations(nets.values(), 2)
+        for pair in product(first_net, second_net)
+    )
+
+
+def compare_trace_pair(uuids, board, bound_traces, mode, objects, pairs_by_members, criteria):
     scope = {
         "trace_uuids": list(uuids), "rule_id": RULE_ID,
         "evidence_ref": {"artifact": board["source"], "locator": f"uuids:{','.join(uuids)}"},
     }
     traces = []
     for uuid in uuids:
-        trace, problem = native_trace(uuid, board["items"], context.get("items", {}))
+        trace, problem = bound_traces[uuid]
         if problem:
             return scope | {"status": "REVIEW_REQUIRED", "affected_uuid": uuid} | problem
-        traces.append(trace)
+        traces.append(trace.copy())
     first, second = traces
     scope["traces"] = traces
     if first["net"] == second["net"]:
@@ -72,7 +86,6 @@ def compare_trace_pair(uuids, board, context, objects, pairs_by_members, criteri
     distance = sqrt(distance_squared)
     scope.update(pcb_value=max(0, (distance - radii) / scale), unit="mm", centerline_distance_mm=distance / scale)
 
-    mode = context.get("mode")
     classes = [objects.get(trace["object_id"], {}) for trace in traces]
     if any(item.get("kind") != "net_class" or mode not in item["modes"] for item in classes):
         return scope | {"status": "REVIEW_REQUIRED", "reason": "net_class_or_mode_unconfirmed"}
@@ -96,16 +109,35 @@ def compare_trace_pair(uuids, board, context, objects, pairs_by_members, criteri
     return scope | {"status": "PASS" if distance_squared >= threshold ** 2 else "FAIL"}
 
 
-def compare_copper_gap(profile, board, context, plan):
+def compare_copper_gap(profile, board, context, plan, *, all_pairs=False):
     context_data = context or {}
+    context_items = context_data.get("items", {})
     mode = context_data.get("mode")
     revision = profile["design_revision"]
+    if all_pairs and "trace_pairs" in context_data:
+        raise ValueError("--all-pairs требует контекст без поля trace_pairs")
     trace_pairs = sorted(tuple(sorted(pair)) for pair in context_data.get("trace_pairs", ()))
     if len(trace_pairs) != len(set(trace_pairs)):
         raise ValueError("trace_pairs — повтор пары UUID дорожек")
     blockers = trace_scope_blockers(board, context, revision)
-    if not trace_pairs:
+    if all_pairs and len(context_items) < 2:
+        blockers.append("trace_scope_insufficient")
+    elif not all_pairs and not trace_pairs:
         blockers.append("trace_pair_scope_empty")
+
+    uuids = sorted(context_items) if all_pairs else sorted({uuid for pair in trace_pairs for uuid in pair})
+    bound_traces = {} if board is None else {
+        uuid: native_trace(uuid, board["items"], context_items) for uuid in uuids
+    }
+    unresolved = []
+    selection = {}
+    if all_pairs:
+        trace_pairs = select_trace_pairs(bound_traces)
+        unresolved = [
+            {"uuid": uuid, "status": "REVIEW_REQUIRED"} | problem
+            for uuid, (_, problem) in bound_traces.items() if problem is not None
+        ]
+        selection = {"scope_mode": "all_pairs", "scope_uuids": uuids, "unresolved_traces": unresolved}
 
     objects = profile["review_objects"]
     pairs_by_members = {
@@ -117,7 +149,8 @@ def compare_copper_gap(profile, board, context, plan):
         if row["metric"] == "copper_gap" and row["mode"] == mode
     }
     checks = [] if board is None else [
-        compare_trace_pair(pair, board, context, objects, pairs_by_members, criteria) for pair in trace_pairs
+        compare_trace_pair(pair, board, bound_traces, mode, objects, pairs_by_members, criteria)
+        for pair in trace_pairs
     ]
     if blockers:
         checks = [
@@ -128,7 +161,7 @@ def compare_copper_gap(profile, board, context, plan):
     status = "REVIEW_REQUIRED"
     if counts["FAIL"]:
         status = "FAIL"
-    elif checks and not counts["REVIEW_REQUIRED"] and not blockers:
+    elif not counts["REVIEW_REQUIRED"] and not blockers and not unresolved:
         status = "PASS" if counts["PASS"] else "N_A"
     return {
         "report_type": "kicad_copper_gap_comparison",
@@ -136,4 +169,4 @@ def compare_copper_gap(profile, board, context, plan):
         "overall_status": status, "scope_pairs": [list(pair) for pair in trace_pairs],
         "board": board_evidence(board, context), "blockers": blockers,
         "status_counts": dict(counts), "checks": checks,
-    }
+    } | selection

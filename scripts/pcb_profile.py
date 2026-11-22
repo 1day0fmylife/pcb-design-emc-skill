@@ -506,11 +506,14 @@ class ProfileReview:
         result = compare_copper_edge(profile, board, context, self.analyze(profile))
         return result | {"context_artifact": artifact}
 
-    def compare_copper_gap(self, profile, board_path, context_path):
+    def compare_copper_gap(self, profile, board_path, context_path, *, all_pairs=False):
         context, artifact = self.load_criteria_artifact(context_path, "kicad-context")
-        uuids = {uuid for pair in (context or {}).get("trace_pairs", ()) for uuid in pair}
+        context_data = context or {}
+        uuids = set(context_data.get("items", {})) if all_pairs else {
+            uuid for pair in context_data.get("trace_pairs", ()) for uuid in pair
+        }
         board = read_board_inventory(board_path, gap_traces=uuids) if board_path is not None else None
-        result = compare_copper_gap(profile, board, context, self.analyze(profile))
+        result = compare_copper_gap(profile, board, context, self.analyze(profile), all_pairs=all_pairs)
         return result | {"context_artifact": artifact}
 
     def validate(self, extra_paths):
@@ -773,6 +776,8 @@ def arguments():
     width = commands.add_parser("compare-trace-width", help="Сверить ширину дорожек по UUID с критериями профиля")
     edge = commands.add_parser("compare-copper-edge", help="Сверить зазор прямых дорожек до линейных Edge.Cuts")
     gap = commands.add_parser("compare-copper-gap", help="Сверить зазор меди выбранных пар прямых дорожек")
+    gap.add_argument("--all-pairs", action="store_true",
+                     help="Подобрать пары разных сетей на одном слое из items контекста")
     for command in (width, edge, gap):
         command.add_argument("profile", help="ID либо путь к профилю")
         command.add_argument("--board", type=Path, help="Плата .kicad_pcb")
@@ -894,7 +899,8 @@ def main():
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для сверки зазора меди между дорожками укажите выходной файл .json")
             profile = review.profile(review.profile_path(args.profile))
-            emit(as_json(review.compare_copper_gap(profile, args.board, args.context)), args.output)
+            result = review.compare_copper_gap(profile, args.board, args.context, all_pairs=args.all_pairs)
+            emit(as_json(result), args.output)
         elif args.command == "probe-kicad":
             if args.timeout <= 0:
                 raise ValueError("--timeout должен быть положительным")
