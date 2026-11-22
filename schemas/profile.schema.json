@@ -256,6 +256,14 @@
               }
             ]
           },
+          "confirmation": {
+            "$ref": "#/$defs/criterion_confirmation"
+          },
+          "alternative_sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/alternative_source"}
+          },
           "requirement": {
             "anyOf": [
               {
@@ -290,6 +298,11 @@
               {
                 "required": [
                   "tolerance"
+                ]
+              },
+              {
+                "required": [
+                  "alternative_sources"
                 ]
               }
             ]
@@ -381,6 +394,35 @@
         "section": {
           "$ref": "#/$defs/text"
         }
+      }
+    },
+    "criterion_confirmation": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "owner": {"$ref": "#/$defs/optional_text"},
+        "design_revision": {"$ref": "#/$defs/optional_text"},
+        "confirmed_on": {
+          "type": ["string", "null"],
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "reason": {"$ref": "#/$defs/optional_text"}
+      }
+    },
+    "optional_text": {
+      "type": ["string", "null"],
+      "pattern": "\\S"
+    },
+    "alternative_source": {
+      "type": "object",
+      "required": ["source", "limit"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"$ref": "#/$defs/criterion_source"},
+        "limit": {"type": "number", "exclusiveMinimum": 0},
+        "tolerance": {"type": "number", "exclusiveMinimum": 0}
       }
     }
   }

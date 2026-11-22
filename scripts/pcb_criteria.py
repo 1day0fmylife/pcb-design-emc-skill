@@ -24,6 +24,34 @@ def criterion_key(criterion):
     return tuple(criterion[field] for field in ("object_id", "mode", "metric"))
 
 
+def validate_limit(values, field):
+    limit, tolerance = values.get("limit"), values.get("tolerance")
+    if any(isinstance(value, float) and not math.isfinite(value) for value in (limit, tolerance)):
+        raise ValueError(f"{field} — значение должно быть конечным числом")
+    if tolerance is not None and limit is not None and tolerance >= limit:
+        raise ValueError(f"{field} — допуск должен быть меньше целевого импеданса")
+
+
+def validate_alternative_sources(criterion, field):
+    used = set()
+    sources = [item["source"] for item in criterion.get("alternative_sources", ())]
+    if criterion.get("source"):
+        sources.insert(0, criterion["source"])
+    for source in sources:
+        locator = tuple(source[name].strip() for name in ("document", "revision", "section"))
+        if locator in used:
+            raise ValueError(f"{field} — повтор ссылки на источник {' / '.join(locator)}")
+        used.add(locator)
+    for index, alternative in enumerate(criterion.get("alternative_sources", ())):
+        label = f"{field}.alternative_sources[{index}]"
+        if criterion["metric"] == "controlled_impedance":
+            if "tolerance" not in alternative:
+                raise ValueError(f"{label} — для импеданса требуется tolerance")
+        elif "tolerance" in alternative:
+            raise ValueError(f"{label} — tolerance допустим только для импеданса")
+        validate_limit(alternative, label)
+
+
 def validate_matrix(objects, criteria, rule_ids):
     pairs = {}
     for object_id, item in objects.items():
@@ -53,6 +81,12 @@ def validate_matrix(objects, criteria, rule_ids):
             raise ValueError(f"{criterion_id} — режим {mode} не объявлен для {object_id}")
         if criterion["rule_id"] not in rule_ids:
             raise ValueError(f"{criterion_id} — неизвестное правило {criterion['rule_id']}")
+        confirmation = criterion.get("confirmation") or {}
+        if confirmation.get("confirmed_on"):
+            try:
+                parse_calendar_date(confirmation["confirmed_on"])
+            except ValueError as error:
+                raise ValueError(f"{criterion_id}.confirmation.confirmed_on — {error}") from error
         if metric == "qualitative":
             continue
         kinds, rules, unit = METRICS[metric]
@@ -67,16 +101,32 @@ def validate_matrix(objects, criteria, rule_ids):
             raise ValueError(f"{criterion_id} — повтор критерия для {' / '.join(slot)}")
         slots.add(slot)
 
-        limit = criterion["limit"]
-        tolerance = criterion.get("tolerance")
-        for value in (limit, tolerance):
-            if isinstance(value, float) and not math.isfinite(value):
-                raise ValueError(f"{criterion_id} — значение должно быть конечным числом")
-        if tolerance is not None and limit is not None and tolerance >= limit:
-            raise ValueError(f"{criterion_id} — допуск должен быть меньше целевого импеданса")
+        validate_limit(criterion, criterion_id)
+        validate_alternative_sources(criterion, criterion_id)
 
 
-def criterion_plan(objects, criteria):
+def source_conflict(entry):
+    values = {(item["limit"], item.get("tolerance")) for item in entry.get("alternative_sources", ())}
+    if entry.get("source") and entry.get("limit") is not None and (
+        entry["metric"] != "controlled_impedance" or entry.get("tolerance") is not None
+    ):
+        values.add((entry["limit"], entry.get("tolerance")))
+    return len(values) > 1
+
+
+def confirmation_gaps(confirmation, design_revision, today):
+    gaps = {}
+    if not confirmation.get("owner"):
+        gaps["confirmation.owner"] = "Указать владельца критерия."
+    confirmed_on = confirmation.get("confirmed_on")
+    if not confirmed_on or parse_calendar_date(confirmed_on) > today:
+        gaps["confirmation.confirmed_on"] = "Указать дату подтверждения не позднее даты анализа."
+    if not design_revision or confirmation.get("design_revision") != design_revision:
+        gaps["confirmation.design_revision"] = "Привязать подтверждение к ревизии платы из профиля."
+    return gaps
+
+
+def criterion_plan(objects, criteria, design_revision=None):
     slots = {criterion_key(entry) for entry in criteria.values()}
     entries = [(name, entry) for name, entry in criteria.items()]
     for object_id, item in objects.items():
@@ -89,6 +139,7 @@ def criterion_plan(objects, criteria):
                     }))
 
     plan = []
+    today = date.today()
     for criterion_id, entry in entries:
         missing = {}
         metric = entry["metric"]
@@ -107,12 +158,21 @@ def criterion_plan(objects, criteria):
             comparison = "at_most"
         if not entry.get("source"):
             missing["source"] = "Указать документ, редакцию и раздел с критерием."
+        conflict = source_conflict(entry)
+        confirmation = entry.get("confirmation") or {}
+        if conflict or "confirmation" in entry:
+            missing.update(confirmation_gaps(confirmation, design_revision, today))
+        source_state = {}
+        if conflict:
+            if not confirmation.get("reason"):
+                missing["source_conflict"] = "Обосновать выбор источника при расхождении значений."
+            source_state["source_conflict"] = "unresolved" if missing else "resolved"
         plan.append(entry | {
             "criterion_id": criterion_id,
             "comparison": comparison,
             "missing_data": missing,
             "status": "REVIEW_REQUIRED" if missing else "NOT_EVALUATED",
-        })
+        } | source_state)
     return plan
 
 
