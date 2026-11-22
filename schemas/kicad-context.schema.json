@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Project context for KiCad DRC v1 import",
+  "title": "Project context for KiCad DRC v1 import and scoped geometry comparisons",
   "type": "object",
   "required": ["design_revision", "board_source"],
   "additionalProperties": false,
@@ -15,9 +15,20 @@
       "propertyNames": {"pattern": "^/violations/(0|[1-9][0-9]*)$"},
       "additionalProperties": {"enum": ["min", "max"]}
     },
+    "trace_pairs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {"$ref": "#/$defs/uuid"}
+      }
+    },
     "items": {
       "type": "object",
-      "propertyNames": {"pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"},
+      "propertyNames": {"$ref": "#/$defs/uuid"},
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -32,6 +43,7 @@
   },
   "$defs": {
     "text": {"type": "string", "pattern": "\\S"},
-    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"}
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"}
   }
 }

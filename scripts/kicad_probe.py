@@ -36,6 +36,9 @@ OBJECT_INVENTORY = (
     "PAD_DRILL_SHAPE_CIRCLE", "PAD_DRILL_SHAPE_OBLONG", "ToMM",
     "PAD.GetNetname", "PAD.GetNetCode", "PAD.GetNetnameMsg", "VECTOR2I.x", "VECTOR2I.y",
 )
+LINEAR_TRACE_GEOMETRY = (
+    *OBJECT_INVENTORY, "PCB_TRACK.GetStart", "PCB_TRACK.GetEnd", "PCB_TRACK.GetWidth", "FromMM",
+)
 PCBNEW_REQUIREMENTS = {
     "inventory_board": OBJECT_INVENTORY,
     "inventory_stackup": (*BOARD_READER, "LSET.CuStack"),
@@ -44,10 +47,11 @@ PCBNEW_REQUIREMENTS = {
     ),
     "npth_copper_classification": ("PAD.IsNPTHWithNoCopper",),
     "trace_width": (*OBJECT_INVENTORY, "PCB_TRACK.GetWidth", "PCB_ARC.GetWidth"),
+    "copper_gap": LINEAR_TRACE_GEOMETRY,
     "copper_to_edge": (
-        *OBJECT_INVENTORY, "BOARD_ITEM.GetLayer", "PCB_TRACK.GetStart", "PCB_TRACK.GetEnd", "PCB_TRACK.GetWidth",
+        *LINEAR_TRACE_GEOMETRY, "BOARD_ITEM.GetLayer",
         "PCB_SHAPE.GetShape", "PCB_SHAPE.GetStart", "PCB_SHAPE.GetEnd", "PCB_SHAPE.GetRectCorners",
-        "SHAPE_T_SEGMENT", "SHAPE_T_RECT", "Edge_Cuts", "FromMM",
+        "SHAPE_T_SEGMENT", "SHAPE_T_RECT", "Edge_Cuts",
     ),
 }
 

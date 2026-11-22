@@ -15,7 +15,7 @@ NIL_UUID = "00000000-0000-0000-0000-000000000000"
 TRACE_KINDS = {"PCB_TRACK", "PCB_ARC"}
 
 
-def read_board_inventory(path, *, stackup_only=False, edge_traces=None):
+def read_board_inventory(path, *, stackup_only=False, edge_traces=None, gap_traces=None):
     if path.suffix.lower() != ".kicad_pcb":
         raise ValueError("Для инвентаризации укажите файл .kicad_pcb")
     try:
@@ -41,6 +41,8 @@ def read_board_inventory(path, *, stackup_only=False, edge_traces=None):
             inventory = {"report_type": "kicad_board_inventory"} | collect_objects(board, pcbnew)
             if edge_traces is not None:
                 inventory["edge_geometry"] = collect_edge_geometry(board, pcbnew, set(edge_traces))
+            if gap_traces is not None:
+                inventory["trace_geometry"] = collect_trace_geometry(board, pcbnew, gap_traces)
     except (AttributeError, RuntimeError, TypeError) as error:
         raise ValueError(f"Ошибка чтения {path} через pcbnew — {error}") from error
 
@@ -118,6 +120,12 @@ def collect_edge_geometry(board, pcbnew, trace_uuids):
         else:
             issues.append({"reason": "unsupported_outline_shape", "uuid": uuid})
 
+    return {"outline_segments": segments, "outline_issues": issues} | collect_trace_geometry(
+        board, pcbnew, trace_uuids
+    )
+
+
+def collect_trace_geometry(board, pcbnew, trace_uuids):
     tracks = {}
     for item in board.GetTracks():
         if item.GetClass() != "PCB_TRACK":
@@ -125,8 +133,7 @@ def collect_edge_geometry(board, pcbnew, trace_uuids):
         uuid = str(item.m_Uuid.AsString()).lower()
         if uuid in trace_uuids:
             tracks[uuid] = {"segment": segment_iu(item), "width": item.GetWidth()}
-    return {"outline_segments": segments, "outline_issues": issues,
-            "tracks": tracks, "units_per_mm": pcbnew.FromMM(1)}
+    return {"tracks": tracks, "units_per_mm": pcbnew.FromMM(1)}
 
 
 def trace_scope_blockers(board, context, revision):
