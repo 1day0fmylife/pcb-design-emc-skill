@@ -1,5 +1,7 @@
 # PCB Design & EMC Review
 
+**Русский** · [English](README.en.md)
+
 Переносимый skill для **Codex и Claude Code**: проектирование и ревью печатных плат, размещение и трассировка, питание, SI/PI, диагностика паразитных связей, EMI/EMC и открытые меры снижения ПЭМИН.
 
 Имя skill: `pcb-design-review`. Репозиторий: `pcb-design-emc-skill`.
@@ -21,6 +23,7 @@ Skill требует обосновывать ограничения докум�
 ```text
 pcb-design-emc-skill/
 ├── README.md
+├── README.en.md
 ├── PROJECT_REVIEW.md
 ├── SKILL.md
 ├── references/
@@ -87,7 +90,7 @@ fi
 | Codex | `~/.agents/skills/pcb-design-review/` |
 | Claude Code | `~/.claude/skills/pcb-design-review/` |
 
-Не устанавливайте одновременно разные версии с одним именем без проверки правил разрешения конфликтов клиента. Официальные инструкции: [Codex skills](https://developers.openai.com/codex/skills/) и [Claude Code skills](https://code.claude.com/docs/en/skills). Claude.ai, Cowork и облачные среды имеют отдельные механизмы подключения.
+Перед установкой разных версий с одним именем проверьте правила обнаружения skill в клиенте. Claude.ai, Cowork и облачные среды имеют отдельные механизмы подключения. [Документация Codex](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) · [Документация Claude Code](https://code.claude.com/docs/en/skills#choose-where-skills-load)
 
 ## Использование
 
@@ -125,6 +128,14 @@ EMI и открытые меры снижения ПЭМИН. Только ан�
 CLI работает локально в Python 3.10+ с PyYAML 6 и jsonschema 4. Зависимости перечислены в [scripts/requirements.txt](scripts/requirements.txt).
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r scripts/requirements.txt
+```
+
+Для команд, читающих нативную PCB, используйте интерпретатор, в котором доступен модуль `pcbnew` из вашей установки KiCad. Проверить это можно командой `probe-kicad`. Конфигуратор профиля и импорт готового DRC JSON работают без `pcbnew`.
+
+```sh
 python3 scripts/pcb_profile.py list --fields
 python3 scripts/pcb_profile.py analyze relay-controller
 python3 scripts/pcb_profile.py init my-controller --from industrial-24v \
@@ -152,6 +163,8 @@ python3 scripts/pcb_profile.py import-drc examples/relay-review/profile.yaml \
   examples/relay-review/drc.json --context examples/relay-review/drc-context.yaml
 python3 scripts/pcb_profile.py validate-report examples/relay-review/profile.yaml \
   examples/relay-review/review.json
+python3 scripts/pcb_profile.py export-report examples/relay-review/profile.yaml \
+  examples/relay-review/review.json --output relay-review.md
 ```
 
 Импорт работает с готовым JSON KiCad DRC v1 и привязывает объекты по UUID из предоставленного контекста. Инженерный отчёт после проверки можно сверить с профилем командой `validate-report`. Форматы матрицы, контекста и доказательств описаны в [регламенте](references/rules-engine.md).
@@ -165,6 +178,8 @@ python3 scripts/pcb_profile.py validate-report examples/relay-review/profile.yam
 Профиль поддерживает минимальный зазор меди для пары классов сетей и отдельные критерии по режимам. При импорте `clearance` KiCad предлагает критерий пары, когда обе сети известны и UUID привязаны к соответствующим классам. [Пример описания пары](references/rules-engine.md#пары-классов-сетей)
 
 В матрице можно указать владельца и дату подтверждения критерия, а также значения из альтернативных источников. При расхождении план требует зафиксировать выбранный источник и обоснование для текущей ревизии. [Подтверждение источников](references/rules-engine.md#подтверждение-и-расхождения-источников)
+
+### Команды KiCad
 
 Геометрические замечания DRC сопоставляются с кандидатами правил по типам KiCad. Инвентарь PCB сохраняет признак PTH или NPTH, форму, размеры и центр отверстия, а для паза также направление оси. [Таблица сопоставлений](references/rules-engine.md#сопоставление-геометрии-drc)
 
@@ -208,7 +223,7 @@ python3 scripts/pcb_profile.py validate-report examples/relay-review/profile.yam
 
 GitHub Actions проверяет схемы, каталог, профили, учебный отчёт и тесты на Python 3.10 и 3.14 для каждого PR и обновления `main`. Тесты, которым нужны локальные KiCad и демонстрационные платы, пропускаются при их отсутствии. [Конфигурация CI](.github/workflows/validate.yml)
 
-Загрузка реальными клиентами Codex/Claude Code, ревью нативной платы и измерения на стенде пока не подтверждены. Skill является инженерным помощником, не заменяет квалифицированное review, расчёты и испытания.
+Нативные прогоны подтверждают работу адаптера KiCad в описанных сценариях. Проверка подключения в целевых версиях Codex и Claude Code, полное инженерное ревью изделия и стендовые измерения остаются отдельными задачами.
 
 **Соответствие EMC/TEMPEST не подтверждается AI, ERC/DRC, моделированием или одной предварительной лабораторной проверкой.** Формальный статус возможен только по утверждённой программе уполномоченной организации. Снижение эмиссии не доказывает отсутствие утечки информации. Закрытые нормы ПЭМИН, ключи, секретные параметры и конфиденциальные результаты не должны попадать в этот репозиторий.
 
@@ -216,10 +231,12 @@ GitHub Actions проверяет схемы, каталог, профили, у
 
 1. Проверить подключение в актуальных Codex и Claude Code и зафиксировать версии клиентов.
 2. Создать несекретные учебные KiCad-проекты с известными дефектами и критериями оценки ответов.
-3. Добавить локальный version-aware запуск ERC/DRC с сохранением отчётов, без автоматической правки платы.
+3. Проверить адаптер ERC/DRC и чтение геометрии в KiCad 8.0 и 9.0. Расширить сверку зазора до края на составные контуры с дугами.
 4. Подготовить шаблоны power budget, constraint matrix и отчёта ревью.
 5. Провести review профильным инженером по SI/PI и EMC, затем уточнить правила по результатам реальных измерений.
 6. Выбрать и добавить лицензию перед распространением на её условиях; лицензия пока не определена.
+
+[План развития](PLAN.md) · [Список задач](TASKS.md)
 
 ## Формализованные правила и профили
 
