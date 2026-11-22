@@ -196,6 +196,8 @@ The official KiCad QA board was used to verify DRC export with `kicad-cli` 10.0.
 
 `compare-netlist` matches a native PCB against a KiCad XML netlist by reference designator, pin number, and net name. Its report shows missing components or pads, unexpected connected pads, and net mismatches. Use a common revision for both files. [Export and comparison example](examples/kicad-netlist/README.md)
 
+`compare-netlist --check-footprints` also compares `Library:Footprint` identifiers for unambiguously matched reference designators. A mismatch records the footprint UUID and both identifiers. Incomplete assignments require review. [Footprint assignment checks](references/rules-engine.md#сверка-назначений-посадочных-мест)
+
 If the installed `pcbnew` cannot determine whether there is copper around an NPTH pad, hole geometry remains available. Netlist comparison marks affected pins `REVIEW_REQUIRED` and retains their pad UUIDs. [Board inventory](references/rules-engine.md#чтение-платы-по-uuid)
 
 `inventory-stackup` reads the physical stackup from the native PCB using local `pcbnew`. JSON records the layer and sublayer order and explicitly stored thicknesses, materials, and dielectric properties. A missing or incomplete stackup is marked `REVIEW_REQUIRED`. [Format and usage](references/rules-engine.md#физический-стек-платы)
@@ -241,7 +243,7 @@ The native runs validate the KiCad adapter for the documented scenarios. Client 
 
 ## Formalized rules and profiles
 
-The machine-readable catalog contains 181 rules in 20 families. Each has a unique PCB-* ID, severity, verification method, and engineering rationale. The catalog is a draft for engineering review. [Rule catalog](rules/catalog.yaml)
+The machine-readable catalog contains 182 rules in 20 families. Each has a unique PCB-* ID, severity, verification method, and engineering rationale. The catalog is a draft for engineering review. [Rule catalog](rules/catalog.yaml)
 
 - [Geometry, clearance and creepage, routing, mounting, and DFM](references/geometry-mechanical-dfm.md)
 - [Capacitors, resistors, diodes, oscillators, inductors, MOSFETs, and thermal design](references/component-placement.md)

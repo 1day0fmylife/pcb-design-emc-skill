@@ -6,6 +6,7 @@ from xml.etree import ElementTree
 
 
 RULE_ID = "PCB-CONN-001"
+FOOTPRINT_RULE_ID = "PCB-CONN-002"
 
 
 def read_kicad_netlist(path):
@@ -30,6 +31,7 @@ def read_kicad_netlist(path):
 
     components = set()
     excluded = set()
+    footprint_assignments = {}
     for element in root.findall("components/comp"):
         refdes = element.get("ref")
         if not refdes or "?" in refdes:
@@ -40,6 +42,9 @@ def read_kicad_netlist(path):
             excluded.add(refdes)
         else:
             components.add(refdes)
+            assignment = element.findall("footprint")
+            if len(assignment) == 1 and len(assignment[0]) == 0:
+                footprint_assignments[refdes] = (assignment[0].text or "").strip() or None
 
     pins = {}
     net_names = set()
@@ -75,12 +80,31 @@ def read_kicad_netlist(path):
         "variant": root.findtext("design/variant"),
         "components": components,
         "excluded": excluded,
+        "footprint_assignments": footprint_assignments,
         "pins": pins,
         "problems": problems,
     }
 
 
-def compare_components(board_items, netlist):
+def complete_library_id(value):
+    library, _, name = (value or "").partition(":")
+    return bool(library.strip() and name.strip() and ":" not in name)
+
+
+def compare_footprint_assignment(refdes, uuid, schematic_id, pcb_id):
+    row = {"rule_id": FOOTPRINT_RULE_ID, "refdes": refdes, "footprint_uuid": uuid,
+           "schematic_footprint_id": schematic_id, "pcb_footprint_id": pcb_id}
+    missing = [field for field, value in (("schematic", schematic_id), ("board", pcb_id))
+               if not complete_library_id(value)]
+    if missing:
+        return row | {"status": "REVIEW_REQUIRED", "kind": "unresolved_footprint_assignment",
+                      "unresolved_sources": missing}
+    if schematic_id != pcb_id:
+        return row | {"status": "FAIL", "kind": "footprint_assignment_mismatch"}
+    return row | {"status": "PASS"}
+
+
+def compare_components(board_items, netlist, *, check_footprints):
     footprints = defaultdict(list)
     board_only = set()
     pads = defaultdict(list)
@@ -125,6 +149,7 @@ def compare_components(board_items, netlist):
                 pcb_net_names[item["netlist_name"]].add(item["net"])
 
     components = netlist["components"]
+    checked_footprints = 0
     complete_references = not any(item["kind"] == "unannotated_footprint" for item in findings)
     for refdes in sorted(footprints.keys() | components):
         matches = footprints.get(refdes, ())
@@ -137,6 +162,14 @@ def compare_components(board_items, netlist):
         elif not matches:
             findings.append({"status": "FAIL" if complete_references else "REVIEW_REQUIRED",
                              "kind": "missing_footprint", "refdes": refdes})
+        elif check_footprints:
+            uuid, = matches
+            schematic_id = netlist.get("footprint_assignments", {}).get(refdes)
+            row = compare_footprint_assignment(refdes, uuid, schematic_id, board_items[uuid].get("library_id"))
+            if row["status"] != "REVIEW_REQUIRED":
+                checked_footprints += 1
+            if row["status"] != "PASS":
+                findings.append(row)
 
     comparable = {refdes for refdes in footprints.keys() & components if len(footprints[refdes]) == 1}
     ambiguous_nets = {name for name, originals in pcb_net_names.items() if len(originals) > 1}
@@ -177,10 +210,10 @@ def compare_components(board_items, netlist):
                 findings.append(evidence | unresolved)
                 continue
             checked += 1
-    return findings, checked, len(comparable)
+    return findings, checked, len(comparable), checked_footprints
 
 
-def compare_netlist(board, netlist, design_revision):
+def compare_netlist(board, netlist, design_revision, *, check_footprints=False):
     findings = []
     missing = []
     if board is None:
@@ -199,9 +232,11 @@ def compare_netlist(board, netlist, design_revision):
     if netlist is not None:
         findings.extend(problem | {"status": "REVIEW_REQUIRED"} for problem in netlist["problems"])
 
-    checked = matched = 0
+    checked = matched = checked_footprints = 0
     if board is not None and netlist is not None and not findings:
-        findings, checked, matched = compare_components(board["items"], netlist)
+        findings, checked, matched, checked_footprints = compare_components(
+            board["items"], netlist, check_footprints=check_footprints
+        )
         if not checked and not findings:
             findings.append({"status": "REVIEW_REQUIRED", "kind": "no_comparable_pins"})
     if missing:
@@ -211,7 +246,7 @@ def compare_netlist(board, netlist, design_revision):
 
     counts = Counter(item["status"] for item in findings)
     overall = "FAIL" if counts["FAIL"] else "REVIEW_REQUIRED" if findings else "PASS"
-    return {
+    report = {
         "report_type": "kicad_netlist_comparison",
         "rule_id": RULE_ID,
         "overall_status": overall,
@@ -227,3 +262,6 @@ def compare_netlist(board, netlist, design_revision):
         "finding_counts": dict(counts),
         "findings": findings,
     }
+    if check_footprints:
+        report["footprint_assignment"] = {"rule_id": FOOTPRINT_RULE_ID, "checked_count": checked_footprints}
+    return report

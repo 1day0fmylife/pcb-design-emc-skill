@@ -800,6 +800,7 @@ def arguments():
     parity.add_argument("--board", type=Path, help="Плата .kicad_pcb")
     parity.add_argument("--netlist", type=Path, help="XML-нетлист из KiCad")
     parity.add_argument("--design-revision", help="Общая ревизия схемы и платы")
+    parity.add_argument("--check-footprints", action="store_true", help="Сверить назначения Library:Footprint по RefDes")
     parity.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     return parser
 
@@ -876,7 +877,8 @@ def main():
                 raise ValueError("Для сверки нетлиста укажите выходной файл .json")
             netlist = read_kicad_netlist(args.netlist) if args.netlist is not None else None
             board = read_board_inventory(args.board) if args.board is not None else None
-            emit(as_json(compare_netlist(board, netlist, args.design_revision)), args.output)
+            result = compare_netlist(board, netlist, args.design_revision, check_footprints=args.check_footprints)
+            emit(as_json(result), args.output)
         elif args.command == "compare-stackup":
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для сверки стека укажите выходной файл .json")

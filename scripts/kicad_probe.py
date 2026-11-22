@@ -51,6 +51,7 @@ PCBNEW_REQUIREMENTS = {
         *OBJECT_INVENTORY, "PAD.GetEffectiveHoleShape", "SHAPE_SEGMENT.GetSeg", "SEG.A", "SEG.B",
     ),
     "npth_copper_classification": ("PAD.IsNPTHWithNoCopper",),
+    "footprint_library_id": (*OBJECT_INVENTORY, "FOOTPRINT.GetFPID", "LIB_ID.GetLibNickname", "LIB_ID.GetLibItemName"),
     "trace_width": (*OBJECT_INVENTORY, "PCB_TRACK.GetWidth", "PCB_ARC.GetWidth"),
     "copper_gap": LINEAR_TRACE_GEOMETRY,
     "copper_to_edge": LINEAR_EDGE_GEOMETRY,
