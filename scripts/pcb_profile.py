@@ -23,6 +23,7 @@ if __package__:
     from .fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from .kicad_board import read_board_inventory
     from .kicad_checks import run_kicad_checks
+    from .kicad_copper_edge import compare_copper_edge
     from .kicad_drc import import_drc
     from .kicad_netlist import compare_netlist, read_kicad_netlist
     from .kicad_probe import probe_kicad
@@ -36,6 +37,7 @@ else:
     from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from kicad_board import read_board_inventory
     from kicad_checks import run_kicad_checks
+    from kicad_copper_edge import compare_copper_edge
     from kicad_drc import import_drc
     from kicad_netlist import compare_netlist, read_kicad_netlist
     from kicad_probe import probe_kicad
@@ -495,6 +497,13 @@ class ProfileReview:
         result = compare_trace_width(profile, board, context, self.analyze(profile))
         return result | {"context_artifact": artifact}
 
+    def compare_copper_edge(self, profile, board_path, context_path):
+        context, artifact = self.load_criteria_artifact(context_path, "kicad-context")
+        uuids = (context or {}).get("items", {})
+        board = read_board_inventory(board_path, edge_traces=uuids) if board_path is not None else None
+        result = compare_copper_edge(profile, board, context, self.analyze(profile))
+        return result | {"context_artifact": artifact}
+
     def validate(self, extra_paths):
         paths = self.built_in_paths()
         identifiers = set()
@@ -753,10 +762,12 @@ def arguments():
     mounting.add_argument("--design-revision", help="Ревизия платы, к которой относится чертёж")
     mounting.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     width = commands.add_parser("compare-trace-width", help="Сверить ширину дорожек по UUID с критериями профиля")
-    width.add_argument("profile", help="ID либо путь к профилю")
-    width.add_argument("--board", type=Path, help="Плата .kicad_pcb")
-    width.add_argument("--context", type=Path, help="Ревизия, режим и UUID дорожек в YAML или JSON")
-    width.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
+    edge = commands.add_parser("compare-copper-edge", help="Сверить зазор прямых дорожек до линейных Edge.Cuts")
+    for command in (width, edge):
+        command.add_argument("profile", help="ID либо путь к профилю")
+        command.add_argument("--board", type=Path, help="Плата .kicad_pcb")
+        command.add_argument("--context", type=Path, help="Ревизия, режим и UUID дорожек в YAML или JSON")
+        command.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     checks = commands.add_parser("run-checks", help="Запустить ERC и DRC на временной копии проекта")
     checks.add_argument("--schematic", type=Path, help="Корневой файл .kicad_sch")
     checks.add_argument("--board", type=Path, help="Файл .kicad_pcb")
@@ -864,6 +875,11 @@ def main():
                 raise ValueError("Для сверки ширины дорожек укажите выходной файл .json")
             profile = review.profile(review.profile_path(args.profile))
             emit(as_json(review.compare_trace_width(profile, args.board, args.context)), args.output)
+        elif args.command == "compare-copper-edge":
+            if args.output and args.output.suffix.lower() != ".json":
+                raise ValueError("Для сверки зазора меди до края укажите выходной файл .json")
+            profile = review.profile(review.profile_path(args.profile))
+            emit(as_json(review.compare_copper_edge(profile, args.board, args.context)), args.output)
         elif args.command == "probe-kicad":
             if args.timeout <= 0:
                 raise ValueError("--timeout должен быть положительным")

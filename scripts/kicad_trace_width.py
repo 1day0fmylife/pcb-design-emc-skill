@@ -3,11 +3,11 @@
 from collections import Counter, defaultdict
 
 if __package__:
-    from .kicad_board import TRACE_KINDS
+    from .kicad_board import TRACE_KINDS, board_evidence, trace_scope_blockers
     from .kicad_drc import enrich_item
     from .pcb_comparisons import numeric_check, validate_range
 else:
-    from kicad_board import TRACE_KINDS
+    from kicad_board import TRACE_KINDS, board_evidence, trace_scope_blockers
     from kicad_drc import enrich_item
     from pcb_comparisons import numeric_check, validate_range
 
@@ -75,24 +75,7 @@ def compare_trace_width(profile, board, context, plan):
     context_items = context_data.get("items", {})
     mode = context_data.get("mode")
     revision = profile["design_revision"]
-    blockers = []
-    if board is None:
-        blockers.append("board_missing")
-    if context is None:
-        blockers.append("context_missing")
-    elif not (revision or "").strip() or context["design_revision"] != revision:
-        blockers.append("design_revision_unconfirmed")
-    if not mode:
-        blockers.append("mode_missing")
-    if not context_items:
-        blockers.append("trace_scope_empty")
-    if board is not None and context is not None:
-        source = context["board_source"].replace("\\", "/").rsplit("/", 1)[-1]
-        name = board["source"].replace("\\", "/").rsplit("/", 1)[-1]
-        if source != name:
-            blockers.append("board_source_mismatch")
-        if context.get("board_sha256", board["board_sha256"]) != board["board_sha256"]:
-            blockers.append("board_sha256_mismatch")
+    blockers = trace_scope_blockers(board, context, revision)
 
     by_object = defaultdict(list)
     for row in plan["criterion_plan"]:
@@ -113,12 +96,6 @@ def compare_trace_width(profile, board, context, plan):
         status = "FAIL"
     elif counts["PASS"] and not counts["REVIEW_REQUIRED"] and not blockers:
         status = "PASS"
-    board_evidence = None
-    if board is not None:
-        board_evidence = {key: board[key] for key in ("source", "board_sha256", "pcbnew_version")}
-        board_evidence["sha256_verified_against_context"] = (
-            context_data.get("board_sha256") == board["board_sha256"]
-        )
     return {
         "report_type": "kicad_trace_width_comparison",
         "rule_id": RULE_ID,
@@ -127,7 +104,7 @@ def compare_trace_width(profile, board, context, plan):
         "mode": mode,
         "overall_status": status,
         "scope_uuids": sorted(context_items),
-        "board": board_evidence,
+        "board": board_evidence(board, context),
         "blockers": blockers,
         "status_counts": dict(counts),
         "checks": checks,

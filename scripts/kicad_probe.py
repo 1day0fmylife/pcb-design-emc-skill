@@ -44,6 +44,11 @@ PCBNEW_REQUIREMENTS = {
     ),
     "npth_copper_classification": ("PAD.IsNPTHWithNoCopper",),
     "trace_width": (*OBJECT_INVENTORY, "PCB_TRACK.GetWidth", "PCB_ARC.GetWidth"),
+    "copper_to_edge": (
+        *OBJECT_INVENTORY, "BOARD_ITEM.GetLayer", "PCB_TRACK.GetStart", "PCB_TRACK.GetEnd", "PCB_TRACK.GetWidth",
+        "PCB_SHAPE.GetShape", "PCB_SHAPE.GetStart", "PCB_SHAPE.GetEnd", "PCB_SHAPE.GetRectCorners",
+        "SHAPE_T_SEGMENT", "SHAPE_T_RECT", "Edge_Cuts", "FromMM",
+    ),
 }
 
 
