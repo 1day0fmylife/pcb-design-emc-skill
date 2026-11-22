@@ -31,6 +31,7 @@ if __package__:
     from .mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from .pcb_criteria import criterion_plan, parse_calendar_date, validate_matrix, validate_report_findings
     from .pcb_evidence import verify_evidence_artifacts
+    from .pcb_report_export import review_markdown, review_sarif
 else:
     from fabrication_stackup import compare_fabrication_stackup, validate_fabrication_criteria
     from kicad_board import read_board_inventory
@@ -43,12 +44,14 @@ else:
     from mechanical_holes import compare_mechanical_holes, validate_mechanical_criteria
     from pcb_criteria import criterion_plan, parse_calendar_date, validate_matrix, validate_report_findings
     from pcb_evidence import verify_evidence_artifacts
+    from pcb_report_export import review_markdown, review_sarif
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 PROFILE_FORMATS = (".yaml", ".yml", ".json")
 REPORT_FORMATS = {".md": "markdown", ".markdown": "markdown", ".json": "json"}
+REVIEW_EXPORT_FORMATS = REPORT_FORMATS | {".sarif": "sarif"}
 SEVERITIES = ("BLOCKER", "ERROR", "WARNING", "INFO")
 DOMAINS = {
     "electrical_safety": "Электробезопасность",
@@ -426,12 +429,13 @@ class ProfileReview:
             "information_security": security_scope,
         }
 
-    def validate_report(self, profile, path, artifact_root=None, *, as_of=None):
+    def load_review_report(self, profile, path, artifact_root=None, *, as_of=None):
         if path.suffix.lower() != ".json":
             raise ValueError("Инженерный отчёт должен быть файлом .json")
         report = self.load_validated(path, "report")
         as_of = as_of or date.today()
-        waiver_count = validate_report_findings(profile, report, self.analyze(profile), as_of=as_of)
+        plan = self.analyze(profile)
+        waiver_count = validate_report_findings(profile, report, plan, as_of=as_of)
         result = {}
         if "evidence_artifacts" in report:
             result.update(verify_evidence_artifacts(report, artifact_root or path.parent, load_document))
@@ -439,6 +443,10 @@ class ProfileReview:
             raise ValueError("Для --artifact-root в отчёте требуется evidence_artifacts")
         if waiver_count:
             result.update(waivers=waiver_count, as_of=as_of.isoformat())
+        return report, plan, result
+
+    def validate_report(self, profile, path, artifact_root=None, *, as_of=None):
+        _, _, result = self.load_review_report(profile, path, artifact_root, as_of=as_of)
         return result or None
 
     def import_drc(self, profile, report_path, context_path, board_path=None):
@@ -714,10 +722,14 @@ def arguments():
     validation = commands.add_parser("validate", help="Проверить схемы, каталог, профили и примеры отчётов")
     validation.add_argument("profiles", nargs="*", help="Дополнительные ID или пути проектов")
     result = commands.add_parser("validate-report", help="Сверить инженерный отчёт с профилем и критериями")
-    result.add_argument("profile", help="ID либо путь к профилю")
-    result.add_argument("report", type=Path, help="Инженерный отчёт JSON")
-    result.add_argument("--artifact-root", type=Path, help="Каталог артефактов, по умолчанию каталог отчёта")
-    result.add_argument("--as-of", help="Дата проверки срока исключений YYYY-MM-DD, по умолчанию сегодня")
+    export = commands.add_parser("export-report", help="Выгрузить проверенный инженерный отчёт")
+    for command in (result, export):
+        command.add_argument("profile", help="ID либо путь к профилю")
+        command.add_argument("report", type=Path, help="Инженерный отчёт JSON")
+        command.add_argument("--artifact-root", type=Path, help="Каталог артефактов, по умолчанию каталог отчёта")
+        command.add_argument("--as-of", help="Дата проверки срока исключений YYYY-MM-DD, по умолчанию сегодня")
+    export.add_argument("--format", choices=("markdown", "json", "sarif"), help="Формат отчёта")
+    export.add_argument("--output", type=Path, help="Новый файл отчёта, по умолчанию stdout")
     drc = commands.add_parser("import-drc", help="Импортировать готовый JSON-отчёт KiCad DRC")
     drc.add_argument("profile", help="ID либо путь к профилю")
     drc.add_argument("report", type=Path, help="Отчёт KiCad DRC JSON")
@@ -807,6 +819,22 @@ def main():
                       f"Проверено указателей JSON — {verified['references']}.")
             if "waivers" in verified:
                 print(f"Проверено исключений — {verified['waivers']}. Дата проверки — {verified['as_of']}.")
+        elif args.command == "export-report":
+            output_format = args.format
+            if output_format is None:
+                output_format = "markdown" if args.output is None else REVIEW_EXPORT_FORMATS.get(args.output.suffix.lower())
+            if output_format is None:
+                raise ValueError("Укажите --format либо расширение .md, .markdown, .json или .sarif")
+            profile = review.profile(review.profile_path(args.profile))
+            as_of = parse_calendar_date(args.as_of) if args.as_of is not None else None
+            report, plan, verified = review.load_review_report(profile, args.report, args.artifact_root, as_of=as_of)
+            if output_format == "markdown":
+                content = review_markdown(report, plan, review.rules, verified)
+            elif output_format == "sarif":
+                content = as_json(review_sarif(report, plan, review.rules, verified))
+            else:
+                content = as_json(report)
+            emit(content, args.output)
         elif args.command == "import-drc":
             if args.output and args.output.suffix.lower() != ".json":
                 raise ValueError("Для импорта DRC укажите выходной файл .json")

@@ -92,6 +92,7 @@
         "rule_id": {"type": "string", "pattern": "^PCB-[A-Z]+-[0-9]{3}$"},
         "status": {"enum": ["PASS", "FAIL", "REVIEW_REQUIRED", "NOT_EVALUATED", "N_A"]},
         "severity": {"enum": ["BLOCKER", "ERROR", "WARNING", "INFO"]},
+        "priority": {"enum": ["P0", "P1", "P2", "P3", null]},
         "refdes": {"$ref": "#/$defs/nullable_text"},
         "net": {"$ref": "#/$defs/nullable_text"},
         "layer": {"$ref": "#/$defs/nullable_text"},
