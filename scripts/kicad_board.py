@@ -15,7 +15,7 @@ NIL_UUID = "00000000-0000-0000-0000-000000000000"
 TRACE_KINDS = {"PCB_TRACK", "PCB_ARC"}
 
 
-def read_board_inventory(path, *, stackup_only=False):
+def read_board_inventory(path, *, stackup_only=False, edge_traces=None):
     if path.suffix.lower() != ".kicad_pcb":
         raise ValueError("Для инвентаризации укажите файл .kicad_pcb")
     try:
@@ -39,6 +39,8 @@ def read_board_inventory(path, *, stackup_only=False):
             }
         else:
             inventory = {"report_type": "kicad_board_inventory"} | collect_objects(board, pcbnew)
+            if edge_traces is not None:
+                inventory["edge_geometry"] = collect_edge_geometry(board, pcbnew, set(edge_traces))
     except (AttributeError, RuntimeError, TypeError) as error:
         raise ValueError(f"Ошибка чтения {path} через pcbnew — {error}") from error
 
@@ -85,6 +87,76 @@ def pad_electrical(pad, pcbnew):
         return True
     no_copper = getattr(pad, "IsNPTHWithNoCopper", None)
     return not no_copper() if no_copper is not None else None
+
+
+def point_iu(vector):
+    return vector.x, vector.y
+
+
+def segment_iu(item):
+    return point_iu(item.GetStart()), point_iu(item.GetEnd())
+
+
+def collect_edge_geometry(board, pcbnew, trace_uuids):
+    segments = []
+    issues = []
+    footprint_graphics = chain.from_iterable(footprint.GraphicalItems() for footprint in board.GetFootprints())
+    for item in chain(board.GetDrawings(), footprint_graphics):
+        if item.GetLayer() != pcbnew.Edge_Cuts:
+            continue
+        uuid = str(item.m_Uuid.AsString()).lower()
+        if not uuid or uuid == NIL_UUID:
+            issues.append({"reason": "outline_uuid_missing"})
+        elif item.GetClass() == "PCB_SHAPE" and item.GetShape() == pcbnew.SHAPE_T_SEGMENT:
+            segments.append((uuid, segment_iu(item)))
+        elif item.GetClass() == "PCB_SHAPE" and item.GetShape() == pcbnew.SHAPE_T_RECT and hasattr(item, "GetRectCorners"):
+            corners = [point_iu(corner) for corner in item.GetRectCorners()]
+            if len(corners) == 4:
+                segments.extend((uuid, edge) for edge in zip(corners, corners[1:] + corners[:1]))
+            else:
+                issues.append({"reason": "invalid_outline_rectangle", "uuid": uuid})
+        else:
+            issues.append({"reason": "unsupported_outline_shape", "uuid": uuid})
+
+    tracks = {}
+    for item in board.GetTracks():
+        if item.GetClass() != "PCB_TRACK":
+            continue
+        uuid = str(item.m_Uuid.AsString()).lower()
+        if uuid in trace_uuids:
+            tracks[uuid] = {"segment": segment_iu(item), "width": item.GetWidth()}
+    return {"outline_segments": segments, "outline_issues": issues,
+            "tracks": tracks, "units_per_mm": pcbnew.FromMM(1)}
+
+
+def trace_scope_blockers(board, context, revision):
+    blockers = []
+    if board is None:
+        blockers.append("board_missing")
+    if context is None:
+        blockers.append("context_missing")
+    elif not (revision or "").strip() or context["design_revision"] != revision:
+        blockers.append("design_revision_unconfirmed")
+    if not (context or {}).get("mode"):
+        blockers.append("mode_missing")
+    if not (context or {}).get("items"):
+        blockers.append("trace_scope_empty")
+    if board is not None and context is not None:
+        source = context["board_source"].replace("\\", "/").rsplit("/", 1)[-1]
+        name = board["source"].replace("\\", "/").rsplit("/", 1)[-1]
+        if source != name:
+            blockers.append("board_source_mismatch")
+        if context.get("board_sha256", board["board_sha256"]) != board["board_sha256"]:
+            blockers.append("board_sha256_mismatch")
+    return blockers
+
+
+def board_evidence(board, context):
+    if board is None:
+        return None
+    evidence = {key: board[key] for key in ("source", "board_sha256", "pcbnew_version")}
+    evidence["sha256_verified_against_context"] = (context or {}).get("board_sha256") == board["board_sha256"]
+    return evidence
 
 
 def collect_objects(board, pcbnew):
