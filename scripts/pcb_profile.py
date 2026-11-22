@@ -327,7 +327,7 @@ class ProfileReview:
     def analyze(self, profile):
         results = []
         input_gaps = defaultdict(list)
-        criteria = criterion_plan(profile["review_objects"], profile["criteria"])
+        criteria = criterion_plan(profile["review_objects"], profile["criteria"], profile["design_revision"])
         by_rule = defaultdict(list)
         for row in criteria:
             by_rule[row["rule_id"]].append(row)
@@ -571,6 +571,20 @@ def markdown(report):
                 f"`{row['rule_id']}` · `{row['status']}` · {value}. "
                 f"{' '.join(part for part in (detail, gaps) if part)}".rstrip()
             )
+            if confirmation := row.get("confirmation"):
+                details = [confirmation.get(field) or "TBD" for field in ("owner", "confirmed_on", "design_revision")]
+                if confirmation.get("reason"):
+                    details.append(confirmation["reason"])
+                lines.append(f"  - Подтверждение — {' · '.join(details)}")
+            for alternative in row.get("alternative_sources", ()):
+                source = alternative["source"]
+                detail = " · ".join(source[key] for key in ("document", "revision", "section"))
+                value = f"{alternative['limit']} {row['unit']}"
+                if "tolerance" in alternative:
+                    value += f" ± {alternative['tolerance']} {row['unit']}"
+                lines.append(f"  - Другой источник — {detail} · {value}")
+            if row.get("source_conflict") == "resolved":
+                lines.append("  - Расхождение источников рассмотрено при подтверждении критерия.")
 
     plans = [rule for rule in report["rules"] if rule["applicability"] == "selected"]
     gap_labels = {key: label for rule in plans for key, label in rule["missing_data"].items()}
