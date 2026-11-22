@@ -10,7 +10,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from xml.etree import ElementTree
 
-from scripts.kicad_netlist import RULE_ID, compare_netlist, read_kicad_netlist
+from scripts.kicad_netlist import FOOTPRINT_RULE_ID, RULE_ID, compare_netlist, read_kicad_netlist
 from scripts.pcb_profile import ROOT
 
 
@@ -54,8 +54,9 @@ class NetlistComparisonTest(unittest.TestCase):
             },
         }
 
-    def run_comparison(self, revision="A"):
-        return compare_netlist(self.board, read_kicad_netlist(self.netlist_path), revision)
+    def run_comparison(self, revision="A", *, check_footprints=False):
+        return compare_netlist(self.board, read_kicad_netlist(self.netlist_path), revision,
+                               check_footprints=check_footprints)
 
     def test_matching_pins_allow_explicit_no_connect_to_have_no_net(self):
         result = self.run_comparison()
@@ -128,6 +129,46 @@ class NetlistComparisonTest(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "XML-нетлист KiCad"):
                 read_kicad_netlist(self.netlist_path)
 
+    def test_footprint_assignment_uses_full_id_for_matched_references(self):
+        xml = XML.replace('<comp ref="U1"/>', '<comp ref="U1"><footprint>Library:Part</footprint></comp>')
+        xml = xml.replace('<comp ref="R2"/>', '<comp ref="R2"><footprint>Resistors:R0603</footprint></comp>')
+        self.netlist_path.write_text(xml, encoding="utf-8")
+        self.board["items"]["u"]["library_id"] = "Library:Part"
+        self.board["items"]["r"]["library_id"] = "Resistors:R0603"
+        result = self.run_comparison(check_footprints=True)
+        self.assertEqual(result["overall_status"], "PASS")
+        self.assertEqual(result["footprint_assignment"], {"rule_id": FOOTPRINT_RULE_ID, "checked_count": 2})
+
+        self.board["items"]["u"]["library_id"] = "Other:Part"
+        default = self.run_comparison()
+        self.assertEqual(default["overall_status"], "PASS")
+        self.assertNotIn("footprint_assignment", default)
+        result = self.run_comparison(check_footprints=True)
+        self.assertEqual(result["overall_status"], "FAIL")
+        self.assertEqual(result["checked_pins"], 4)
+        row, = result["findings"]
+        self.assertEqual(row, {
+            "status": "FAIL", "kind": "footprint_assignment_mismatch", "rule_id": FOOTPRINT_RULE_ID,
+            "refdes": "U1", "footprint_uuid": "u", "schematic_footprint_id": "Library:Part",
+            "pcb_footprint_id": "Other:Part",
+        })
+        self.assertEqual(self.run_comparison(revision=None, check_footprints=True)["overall_status"], "REVIEW_REQUIRED")
+
+    def test_incomplete_footprint_assignments_and_ambiguous_refs_require_review(self):
+        xml = XML.replace('<comp ref="U1"/>',
+                          '<comp ref="U1"><footprint>A:Part</footprint><footprint>B:Part</footprint></comp>')
+        self.netlist_path.write_text(xml, encoding="utf-8")
+        self.board["items"]["u"]["library_id"] = "A:Part"
+        self.board["items"]["r"]["library_id"] = "R0603"
+        result = self.run_comparison(check_footprints=True)
+        self.assertEqual(result["overall_status"], "REVIEW_REQUIRED")
+        self.assertEqual(result["footprint_assignment"]["checked_count"], 0)
+        self.assertEqual({row["refdes"]: row["unresolved_sources"] for row in result["findings"]},
+                         {"U1": ["schematic"], "R2": ["schematic", "board"]})
+        self.board["items"]["duplicate"] = self.board["items"]["u"].copy()
+        rows = self.run_comparison(check_footprints=True)["findings"]
+        self.assertEqual([row["kind"] for row in rows if row.get("refdes") == "U1"], ["duplicate_footprint"])
+
     @unittest.skipUnless(find_spec("pcbnew") and shutil.which("kicad-cli") and
                          (DEMO / "pic_programmer.kicad_sch").is_file(),
                          "Нужны KiCad CLI, pcbnew и демонстрационный проект")
@@ -149,7 +190,22 @@ class NetlistComparisonTest(unittest.TestCase):
         clean = json.loads(subprocess.check_output(command, timeout=30))
         self.assertEqual(clean["overall_status"], "PASS")
         self.assertGreater(clean["checked_pins"], 0)
+        footprint_command = command + ["--check-footprints"]
+        clean_footprints = json.loads(subprocess.check_output(footprint_command, timeout=30))
+        self.assertEqual(clean_footprints["overall_status"], "PASS")
+        self.assertEqual(clean_footprints["footprint_assignment"]["checked_count"], clean["matched_components"])
         tree = ElementTree.parse(self.netlist_path)
+        assigned = tree.find("./components/comp[@ref='C1']/footprint")
+        footprint_id = assigned.text
+        assigned.text = "Fixture:OtherFootprint"
+        tree.write(self.netlist_path, encoding="utf-8", xml_declaration=True)
+        changed_footprint = json.loads(subprocess.check_output(footprint_command, timeout=30))
+        self.assertEqual(changed_footprint["overall_status"], "FAIL")
+        row, = changed_footprint["findings"]
+        self.assertEqual((row["kind"], row["refdes"], row["pcb_footprint_id"]),
+                         ("footprint_assignment_mismatch", "C1", footprint_id))
+        self.assertEqual(changed_footprint["checked_pins"], clean["checked_pins"])
+        assigned.text = footprint_id
         original = tree.find("./nets/net[@name='/VPP/MCLR']")
         modified = tree.find("./nets/net[@name='GND']")
         node = original.find("node[@ref='P2'][@pin='1']")

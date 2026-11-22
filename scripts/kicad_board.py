@@ -184,6 +184,18 @@ def board_evidence(board, context):
     return evidence
 
 
+def footprint_library_id(footprint):
+    get_id = getattr(footprint, "GetFPID", None)
+    library_id = get_id() if get_id is not None else None
+    get_library = getattr(library_id, "GetLibNickname", None)
+    get_name = getattr(library_id, "GetLibItemName", None)
+    if get_library is not None and get_name is not None:
+        library, name = str(get_library()), str(get_name())
+        if library and name:
+            return f"{library}:{name}"
+    return None
+
+
 def collect_objects(board, pcbnew):
     layers = {
         layer: str(board.GetStandardLayerName(layer))
@@ -214,6 +226,8 @@ def collect_objects(board, pcbnew):
             row["footprint_uuid"] = footprint_uuid
         if kind == "FOOTPRINT":
             row["board_only"] = bool(item.IsBoardOnly())
+            if library_id := footprint_library_id(item):
+                row["library_id"] = library_id
         if kind in TRACE_KINDS:
             get_width = getattr(item, "GetWidth", None)
             if get_width is not None and (width := get_width()) > 0:

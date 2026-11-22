@@ -1171,6 +1171,13 @@ rules:
     title: "Сверять назначение сетей по RefDes и номеру вывода между схемой и платой."
     reference: references/rules-engine.md
     criteria_source: project_or_datasheet
+  - id: PCB-CONN-002
+    category: connectivity
+    severity: ERROR
+    verification: review
+    title: "Сверять назначенные идентификаторы посадочных мест по RefDes между схемой и платой."
+    reference: references/rules-engine.md
+    criteria_source: project_or_datasheet
   - id: PCB-SAFE-001
     category: safety
     severity: BLOCKER

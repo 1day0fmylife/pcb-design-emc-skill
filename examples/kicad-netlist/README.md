@@ -17,3 +17,15 @@ python3 scripts/pcb_profile.py compare-netlist --board "$demo_dir/pic_programmer
 В контрольном прогоне сопоставились 63 компонента и 236 выводов, статус сверки — `PASS`. Для проверки расхождения в отдельной копии экспортированного XML перенесён узел `P2.1` из `/VPP/MCLR` в `GND`. Эта копия дала один `net_mismatch` со статусом `FAIL`, сохранила UUID площадки и обе сети. Исходные файлы схемы и платы сохранили контрольные суммы. При пропуске `--design-revision` отчёт получает `REVIEW_REQUIRED`.
 
 На той же версии проверены `complex_hierarchy` с 68 компонентами и 165 выводами и `multichannel_mixer` со 114 компонентами и 280 выводами. Обе пары получили `PASS` в охвате сравнения назначений сетей.
+
+## Назначения посадочных мест
+
+```sh
+python3 scripts/pcb_profile.py compare-netlist --board "$demo_dir/pic_programmer.kicad_pcb" \
+  --netlist "$netlist_dir/pic.xml" --design-revision KiCad-10.0.8-demo \
+  --check-footprints --output "$netlist_dir/footprints.json"
+```
+
+Для `pic_programmer` совпали 63 полных идентификатора посадочных мест. Когда в отдельной копии XML заменено назначение `C1`, отчёт содержит один `footprint_assignment_mismatch` и итоговый `FAIL`. Число сверенных выводов осталось 236. [Критерий и охват](../../references/rules-engine.md#сверка-назначений-посадочных-мест)
+
+Для `complex_hierarchy` совпали все 68 назначений. В `multichannel_mixer` у всех 114 компонентов совпало имя посадочного места, но на плате использовался псевдоним библиотеки `multichannel_mixer`. Например, у `C1` схема указала `Capacitors THD:CAPPRB254-500X840`, плата — `multichannel_mixer:CAPPRB254-500X840`. Сверка точных идентификаторов дала 114 расхождений. Для оценки их влияния проверьте таблицы библиотек проекта и геометрию самих посадочных мест.
