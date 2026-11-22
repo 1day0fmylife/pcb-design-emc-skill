@@ -1,21 +1,32 @@
-"""Зазор прямых дорожек до замкнутого линейного контура KiCad."""
+"""Зазор прямых дорожек до замкнутого линейного или круглого контура KiCad."""
 
 from collections import Counter
 from fractions import Fraction
-from itertools import combinations
+from itertools import combinations, product
 from math import sqrt
 
 if __package__:
     from .kicad_board import board_evidence, trace_scope_blockers
     from .kicad_drc import enrich_item
-    from .pcb_segments import intersects, orientation, segment_squared_distance
+    from .pcb_segments import intersects, orientation, point_segment_squared_distance, segment_squared_distance
 else:
     from kicad_board import board_evidence, trace_scope_blockers
     from kicad_drc import enrich_item
-    from pcb_segments import intersects, orientation, segment_squared_distance
+    from pcb_segments import intersects, orientation, point_segment_squared_distance, segment_squared_distance
 
 
 RULE_ID = "PCB-GEO-003"
+
+
+def point_distance_squared(point, center):
+    return (point[0] - center[0]) ** 2 + (point[1] - center[1]) ** 2
+
+
+def radial_bounds_squared(segment, center):
+    # Distance to a point is continuous, with its maximum at a segment endpoint.
+    return point_segment_squared_distance(center, segment), max(
+        point_distance_squared(point, center) for point in segment
+    )
 
 
 def outline_issues(geometry):
@@ -23,7 +34,8 @@ def outline_issues(geometry):
     if issues:
         return issues
     edges = geometry["outline_segments"]
-    if len(edges) < 3:
+    circles = geometry.get("outline_circles", ())
+    if (edges and len(edges) < 3) or not (edges or circles):
         return [{"reason": "outline_missing_or_incomplete"}]
     for uuid, (a, b) in edges:
         if a == b:
@@ -45,10 +57,21 @@ def outline_issues(geometry):
                 continue
         if intersects(first, second):
             return [{"reason": "outline_intersection", "edge_uuids": [first_uuid, second_uuid]}]
+
+    for uuid, (_, radius) in circles:
+        if radius <= 0:
+            return [{"reason": "zero_radius_outline_circle", "uuid": uuid}]
+    for (line_uuid, segment), (circle_uuid, (center, radius)) in product(edges, circles):
+        nearest, farthest = radial_bounds_squared(segment, center)
+        if nearest <= radius ** 2 <= farthest:
+            return [{"reason": "outline_intersection", "edge_uuids": [line_uuid, circle_uuid]}]
+    for (first_uuid, (a, r1)), (second_uuid, (b, r2)) in combinations(circles, 2):
+        if (r1 - r2) ** 2 <= point_distance_squared(a, b) <= (r1 + r2) ** 2:
+            return [{"reason": "outline_intersection", "edge_uuids": [first_uuid, second_uuid]}]
     return []
 
 
-def inside_outline(point, segments):
+def inside_outline(point, segments, circles):
     x, y = point
     inside = False
     for _, (a, b) in segments:
@@ -56,7 +79,33 @@ def inside_outline(point, segments):
         x2, y2 = b
         if (y1 > y) != (y2 > y) and x1 + Fraction((y - y1) * (x2 - x1), y2 - y1) > x:
             inside = not inside
+    for _, (center, radius) in circles:
+        if point_distance_squared(point, center) < radius ** 2:
+            inside = not inside
     return inside
+
+
+def circle_distance(segment, center, radius, threshold):
+    nearest, farthest = radial_bounds_squared(segment, center)
+    radius_squared = radius ** 2
+    if nearest > radius_squared:
+        # Rationalize the difference so that a small positive gap survives rounding.
+        distance = (nearest - radius_squared) / (sqrt(nearest) + radius)
+        return distance, nearest >= (radius + threshold) ** 2
+    if farthest < radius_squared:
+        distance = (radius_squared - farthest) / (radius + sqrt(farthest))
+        max_distance_to_center = radius - threshold
+        return distance, max_distance_to_center >= 0 and farthest <= max_distance_to_center ** 2
+    return 0, False
+
+
+def measure_outline(segment, segments, circles, threshold):
+    if segments:
+        squared, uuid = min((segment_squared_distance(segment, edge), uuid) for uuid, edge in segments)
+        yield sqrt(squared), uuid, squared >= threshold ** 2
+    for uuid, (center, radius) in circles:
+        distance, meets_threshold = circle_distance(segment, center, radius, threshold)
+        yield distance, uuid, meets_threshold
 
 
 def compare_edge_trace(uuid, board, context, profile, criteria, issues):
@@ -89,17 +138,23 @@ def compare_edge_trace(uuid, board, context, profile, criteria, issues):
         return unverified | {"reason": "trace_geometry_missing"}
     segment = track["segment"]
     segments = geometry["outline_segments"]
-    distance_squared, edge_uuid = min(
-        (segment_squared_distance(segment, edge), edge_uuid) for edge_uuid, edge in segments
-    )
+    circles = geometry.get("outline_circles", ())
     scale = geometry["units_per_mm"]
     radius = Fraction(track["width"], 2)
-    outside = distance_squared > 0 and not inside_outline(segment[0], segments)
-    distance = sqrt(distance_squared)
+    criterion = criteria.get(object_id)
+    threshold = radius
+    if criterion is not None and criterion["status"] == "NOT_EVALUATED":
+        threshold += Fraction(str(criterion["limit"])) * scale
+    distances = list(measure_outline(segment, segments, circles, threshold))
+    distance, edge_uuid, _ = min(distances)
+    outside = distance > 0 and not inside_outline(segment[0], segments, circles)
     gap = max(0, (distance - radius) / scale) if not outside else None
     scope.update(layer=layer, net=native.get("net"), edge_uuid=edge_uuid, pcb_value=gap,
                  unit="mm", centerline_distance_mm=distance / scale, width_mm=track["width"] / scale)
-    criterion = criteria.get(object_id)
+    circle = dict(circles).get(edge_uuid)
+    if circle is not None:
+        (x, y), edge_radius = circle
+        scope["edge_circle"] = {"center_mm": {"x": x / scale, "y": y / scale}, "radius_mm": edge_radius / scale}
     if criterion is None:
         return scope | {"status": "REVIEW_REQUIRED", "reason": "edge_criterion_missing"}
     scope.update(criterion_id=criterion["criterion_id"], source=criterion.get("source"),
@@ -109,8 +164,7 @@ def compare_edge_trace(uuid, board, context, profile, criteria, issues):
                         "missing_data": criterion["missing_data"]}
     if outside:
         return scope | {"status": "FAIL", "reason": "trace_centerline_outside_material"}
-    threshold = radius + Fraction(str(criterion["limit"])) * scale
-    return scope | {"status": "PASS" if distance_squared >= threshold ** 2 else "FAIL"}
+    return scope | {"status": "PASS" if all(meets_threshold for _, _, meets_threshold in distances) else "FAIL"}
 
 
 def compare_copper_edge(profile, board, context, plan):
@@ -123,11 +177,13 @@ def compare_copper_edge(profile, board, context, plan):
         row["object_id"]: row for row in plan["criterion_plan"]
         if row["rule_id"] == RULE_ID and row["metric"] == "copper_to_edge" and row["mode"] == mode
     }
-    issues, checks, edge_count = [], [], 0
+    issues, checks = [], []
+    edge_count, circle_count = 0, 0
     if board is not None:
         geometry = board["edge_geometry"]
         issues = outline_issues(geometry)
         edge_count = len(geometry["outline_segments"])
+        circle_count = len(geometry.get("outline_circles", ()))
         checks = [compare_edge_trace(uuid, board, context, profile, criteria, issues) for uuid in uuids]
     if blockers:
         checks = [
@@ -144,6 +200,6 @@ def compare_copper_edge(profile, board, context, plan):
         "report_type": "kicad_copper_edge_comparison", "rule_id": RULE_ID,
         "profile_id": profile["profile_id"], "design_revision": revision, "mode": mode,
         "overall_status": status, "scope_uuids": uuids, "board": board_evidence(board, context),
-        "outline_segment_count": edge_count, "outline_issues": issues,
+        "outline_segment_count": edge_count, "outline_circle_count": circle_count, "outline_issues": issues,
         "blockers": blockers, "status_counts": dict(counts), "checks": checks,
     }

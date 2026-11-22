@@ -87,6 +87,62 @@ class CopperEdgeComparisonTest(unittest.TestCase):
         row, = self.result()["checks"]
         self.assertEqual((row["status"], row["reason"]), ("FAIL", "trace_centerline_outside_material"))
 
+    def test_circular_board_uses_farthest_endpoint_and_exact_minimum(self):
+        self.geometry["outline_segments"] = []
+        self.geometry["outline_circles"] = [("round-board", ((0, 0), 1000))]
+        self.track["segment"] = ((-100, 0), (400, 0))
+        result = self.result()
+        self.assertEqual(result["outline_circle_count"], 1)
+        row, = result["checks"]
+        self.assertEqual((row["status"], row["edge_uuid"], row["pcb_value"]), ("PASS", "round-board", 0.5))
+        self.assertEqual(row["edge_circle"], {"center_mm": {"x": 0, "y": 0}, "radius_mm": 1})
+        self.criterion["limit"] = 0.500001
+        self.assertEqual(self.result()["overall_status"], "FAIL")
+        self.criterion["limit"] = 2
+        self.assertEqual(self.result()["overall_status"], "FAIL")
+        self.track["segment"] = ((1200, 0), (1400, 0))
+        row, = self.result()["checks"]
+        self.assertEqual((row["status"], row["reason"]), ("FAIL", "trace_centerline_outside_material"))
+
+    def test_circular_cutout_uses_closest_point_and_detects_crossing(self):
+        self.geometry["outline_segments"] = []
+        self.geometry["outline_circles"] = [("outer", ((0, 0), 10000)), ("cutout", ((0, 0), 1000))]
+        self.track["segment"] = ((-1000, 1600), (1000, 1600))
+        row, = self.result()["checks"]
+        self.assertEqual((row["status"], row["edge_uuid"], row["pcb_value"]), ("PASS", "cutout", 0.5))
+        self.track["segment"] = ((-1500, 0), (1500, 0))
+        row, = self.result()["checks"]
+        self.assertEqual((row["status"], row["edge_uuid"], row["pcb_value"]), ("FAIL", "cutout", 0))
+        self.track["segment"] = ((-1000, 1000), (1000, 1000))
+        self.assertEqual(self.result()["checks"][0]["pcb_value"], 0)
+        self.track["segment"] = ((-100, 0), (100, 0))
+        row, = self.result()["checks"]
+        self.assertEqual(row["reason"], "trace_centerline_outside_material")
+
+    def test_mixed_outline_rejects_tangent_cutout_and_open_segments(self):
+        self.geometry["outline_circles"] = [("cutout", ((5000, 2000), 1000))]
+        self.track["segment"] = ((4500, 3600), (5500, 3600))
+        self.assertEqual(self.result()["overall_status"], "PASS")
+        self.geometry["outline_circles"] = [("cutout", ((5000, 1000), 1000))]
+        result = self.result()
+        self.assertEqual(result["outline_issues"], [
+            {"reason": "outline_intersection", "edge_uuids": ["outer-0", "cutout"]},
+        ])
+        self.assertEqual(result["overall_status"], "REVIEW_REQUIRED")
+        self.geometry["outline_segments"].pop()
+        self.assertEqual(self.result()["outline_issues"][0]["reason"], "outline_open_or_branched")
+
+    def test_touching_intersecting_or_coincident_circles_require_review(self):
+        self.geometry["outline_segments"] = []
+        for center, radius in (((4000, 0), 3000), ((5000, 0), 3000), ((1000, 0), 2000), ((0, 0), 2000)):
+            with self.subTest(center=center, radius=radius):
+                self.geometry["outline_circles"] = [("first", ((0, 0), 2000)), ("second", (center, radius))]
+                result = self.result()
+                self.assertEqual(result["overall_status"], "REVIEW_REQUIRED")
+                self.assertEqual(result["outline_issues"], [
+                    {"reason": "outline_intersection", "edge_uuids": ["first", "second"]},
+                ])
+
     def test_open_crossing_or_unsupported_outline_requires_review(self):
         self.geometry["outline_segments"].pop()
         self.assertEqual(self.result()["outline_issues"][0]["reason"], "outline_open_or_branched")
@@ -130,6 +186,41 @@ class CopperEdgeComparisonTest(unittest.TestCase):
         geometry = collect_edge_geometry(board, api, set())
         self.assertEqual(geometry["outline_segments"], [(TRACK_UUID, edge) for _, edge in loop("rect", vertices)])
         self.assertEqual(geometry["outline_issues"], [])
+
+    def test_circle_reader_uses_native_radius_and_rejects_degenerate_circle(self):
+        center = SimpleNamespace(x=10, y=20)
+        circle = SimpleNamespace(
+            GetLayer=lambda: 1, GetClass=lambda: "PCB_SHAPE", GetShape=lambda: 4,
+            m_Uuid=SimpleNamespace(AsString=lambda: TRACK_UUID),
+            GetCenter=lambda: center, GetEnd=lambda: SimpleNamespace(x=210, y=20), GetRadius=lambda: 200,
+        )
+        api = SimpleNamespace(Edge_Cuts=1, SHAPE_T_SEGMENT=2, SHAPE_T_RECT=3, SHAPE_T_CIRCLE=4,
+                              FromMM=lambda value: value * 1000)
+        board = SimpleNamespace(GetDrawings=lambda: [circle], GetFootprints=list, GetTracks=list)
+        geometry = collect_edge_geometry(board, api, set())
+        self.assertEqual(geometry["outline_circles"], [(TRACK_UUID, ((10, 20), 200))])
+        self.assertEqual(geometry["outline_issues"], [])
+        circle.GetEnd = lambda: center
+        self.assertEqual(collect_edge_geometry(board, api, set())["outline_issues"], [
+            {"reason": "zero_radius_outline_circle", "uuid": TRACK_UUID},
+        ])
+        board.GetDrawings = list
+        board.GetFootprints = lambda: [SimpleNamespace(GraphicalItems=lambda: [circle])]
+        self.assertEqual(collect_edge_geometry(board, api, set())["outline_issues"], [
+            {"reason": "unsupported_outline_shape", "uuid": TRACK_UUID},
+        ])
+        endpoint = SimpleNamespace(x=210, y=20)
+        circle.GetEnd = lambda: endpoint
+        line = SimpleNamespace(
+            GetLayer=lambda: 1, GetClass=lambda: "PCB_SHAPE", GetShape=lambda: 2,
+            m_Uuid=SimpleNamespace(AsString=lambda: DEMO_UUID),
+            GetStart=lambda: center, GetEnd=lambda: endpoint,
+        )
+        board.GetDrawings = lambda: [circle]
+        board.GetFootprints = lambda: [SimpleNamespace(GraphicalItems=lambda: [line])]
+        self.assertEqual(collect_edge_geometry(board, api, set())["outline_issues"], [
+            {"reason": "footprint_outline_with_circles_unconfirmed", "edge_uuids": [DEMO_UUID]},
+        ])
 
     @unittest.skipUnless(find_spec("pcbnew") and DEMO.with_suffix(".kicad_pro").is_file() and DEMO.is_file(),
                          "Нужны pcbnew и демонстрационный проект")

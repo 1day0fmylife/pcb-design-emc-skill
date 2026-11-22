@@ -39,6 +39,11 @@ OBJECT_INVENTORY = (
 LINEAR_TRACE_GEOMETRY = (
     *OBJECT_INVENTORY, "PCB_TRACK.GetStart", "PCB_TRACK.GetEnd", "PCB_TRACK.GetWidth", "FromMM",
 )
+LINEAR_EDGE_GEOMETRY = (
+    *LINEAR_TRACE_GEOMETRY, "BOARD_ITEM.GetLayer",
+    "PCB_SHAPE.GetShape", "PCB_SHAPE.GetStart", "PCB_SHAPE.GetEnd", "PCB_SHAPE.GetRectCorners",
+    "SHAPE_T_SEGMENT", "SHAPE_T_RECT", "Edge_Cuts",
+)
 PCBNEW_REQUIREMENTS = {
     "inventory_board": OBJECT_INVENTORY,
     "inventory_stackup": (*BOARD_READER, "LSET.CuStack"),
@@ -48,11 +53,8 @@ PCBNEW_REQUIREMENTS = {
     "npth_copper_classification": ("PAD.IsNPTHWithNoCopper",),
     "trace_width": (*OBJECT_INVENTORY, "PCB_TRACK.GetWidth", "PCB_ARC.GetWidth"),
     "copper_gap": LINEAR_TRACE_GEOMETRY,
-    "copper_to_edge": (
-        *LINEAR_TRACE_GEOMETRY, "BOARD_ITEM.GetLayer",
-        "PCB_SHAPE.GetShape", "PCB_SHAPE.GetStart", "PCB_SHAPE.GetEnd", "PCB_SHAPE.GetRectCorners",
-        "SHAPE_T_SEGMENT", "SHAPE_T_RECT", "Edge_Cuts",
-    ),
+    "copper_to_edge": LINEAR_EDGE_GEOMETRY,
+    "copper_to_circular_edge": (*LINEAR_EDGE_GEOMETRY, "SHAPE_T_CIRCLE", "PCB_SHAPE.GetCenter", "PCB_SHAPE.GetRadius"),
 }
 
 

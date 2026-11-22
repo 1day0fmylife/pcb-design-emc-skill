@@ -774,7 +774,7 @@ def arguments():
     mounting.add_argument("--design-revision", help="Ревизия платы, к которой относится чертёж")
     mounting.add_argument("--output", type=Path, help="Новый файл JSON, по умолчанию stdout")
     width = commands.add_parser("compare-trace-width", help="Сверить ширину дорожек по UUID с критериями профиля")
-    edge = commands.add_parser("compare-copper-edge", help="Сверить зазор прямых дорожек до линейных Edge.Cuts")
+    edge = commands.add_parser("compare-copper-edge", help="Сверить зазор прямых дорожек до контура Edge.Cuts")
     gap = commands.add_parser("compare-copper-gap", help="Сверить зазор меди выбранных пар прямых дорожек")
     gap.add_argument("--all-pairs", action="store_true",
                      help="Подобрать пары разных сетей на одном слое из items контекста")
